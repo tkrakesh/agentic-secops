@@ -1,0 +1,802 @@
+"""
+Project Sentinel — Streamlit Dashboard (app.py)
+
+Run:  streamlit run app.py
+"""
+
+from __future__ import annotations
+
+import json
+import time
+import sys
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+
+import streamlit as st
+
+# ── Page config — must be first Streamlit call ─────────────────────────────────
+st.set_page_config(
+    page_title="Project Sentinel | SOC AIOps",
+    page_icon="🛡️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ── Inject global CSS ──────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+
+/* Dark theme overrides */
+.stApp { background: #0a0e1a; color: #e2e8f0; }
+.stSidebar { background: #0d1220 !important; border-right: 1px solid #1e2a3a; }
+.stSidebar .stMarkdown { color: #94a3b8; }
+
+/* Cards */
+.sentinel-card {
+    background: linear-gradient(135deg, #111827 0%, #0f172a 100%);
+    border: 1px solid #1e3a5f;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 8px 0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.sentinel-card-header {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: #4a9eff;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+/* Severity badges */
+.badge-critical { background:#7f1d1d; color:#fca5a5; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:0.5px; }
+.badge-high     { background:#7c2d12; color:#fdba74; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+.badge-medium   { background:#713f12; color:#fde68a; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+.badge-low      { background:#14532d; color:#86efac; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+
+/* Agent message colours */
+.msg-orchestrator { border-left: 3px solid #2E5FA3; background:#0a1628; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-case-retrieval{ border-left: 3px solid #0F6E56; background:#051a14; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-rag-playbook  { border-left: 3px solid #534AB7; background:#0d0b28; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-threat-intel  { border-left: 3px solid #B45309; background:#1a0f00; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-action-exec   { border-left: 3px solid #16A34A; background:#051a0a; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-gemini        { border-left: 3px solid #D97706; background:#1a1200; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+
+/* MITRE badges */
+.mitre-badge { display:inline-block; background:#1e1b4b; color:#a5b4fc; border:1px solid #3730a3; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; margin:2px; font-family:'JetBrains Mono',monospace; }
+
+/* Confidence bar */
+.conf-bar-container { background:#1e2a3a; border-radius:8px; height:12px; width:100%; margin:6px 0; }
+.conf-bar-fill-green  { background:linear-gradient(90deg,#15803d,#22c55e); height:12px; border-radius:8px; transition:width 0.5s ease; }
+.conf-bar-fill-amber  { background:linear-gradient(90deg,#b45309,#f59e0b); height:12px; border-radius:8px; }
+.conf-bar-fill-red    { background:linear-gradient(90deg,#991b1b,#ef4444); height:12px; border-radius:8px; }
+
+/* HITL panel */
+.hitl-panel { background:linear-gradient(135deg,#0f1f3d,#0a1628); border:2px solid #2563eb; border-radius:12px; padding:24px; text-align:center; }
+.hitl-title { font-size:18px; font-weight:700; color:#60a5fa; margin-bottom:8px; }
+.hitl-subtitle { font-size:13px; color:#94a3b8; margin-bottom:20px; }
+
+/* Action log */
+.action-line-success { color:#22c55e; font-family:'JetBrains Mono',monospace; font-size:12px; padding:3px 0; }
+.action-line-queued  { color:#f59e0b; font-family:'JetBrains Mono',monospace; font-size:12px; padding:3px 0; }
+.action-line-running { color:#60a5fa; font-family:'JetBrains Mono',monospace; font-size:12px; padding:3px 0; }
+
+/* SNOW card */
+.snow-card { background:linear-gradient(135deg,#0a1f0a,#051505); border:1px solid #16a34a; border-radius:12px; padding:20px; }
+.snow-resolved { color:#22c55e; font-size:22px; font-weight:800; }
+.snow-field { color:#94a3b8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; }
+.snow-value { color:#e2e8f0; font-size:13px; font-weight:500; margin-bottom:8px; }
+
+/* Reputation score pill */
+.rep-danger { color:#ef4444; font-weight:700; }
+.rep-warn   { color:#f59e0b; font-weight:700; }
+.rep-clean  { color:#22c55e; font-weight:700; }
+
+/* Step progress */
+.step-done    { color:#22c55e; }
+.step-running { color:#60a5fa; }
+.step-pending { color:#374151; }
+</style>
+""", unsafe_allow_html=True)
+
+# ── Constants ──────────────────────────────────────────────────────────────────
+CASES = {
+    "CASE-001": {
+        "label": "🔴 CASE-001 · CRITICAL — Lateral Movement (Domain Admin)",
+        "severity": "CRITICAL",
+        "badge": "badge-critical",
+        "desc": "Compromised domain admin account accessing 14 workstations sequentially at 02:14 UTC",
+        "ts": "2026-03-20T02:14:33Z",
+        "alerts": 3,
+    },
+    "CASE-002": {
+        "label": "🟠 CASE-002 · HIGH — DNS Tunnelling C2 Exfiltration",
+        "severity": "HIGH",
+        "badge": "badge-high",
+        "desc": "4.2 GB outbound DNS tunnelling to C2 domain registered 48h prior",
+        "ts": "2026-03-20T11:43:17Z",
+        "alerts": 3,
+    },
+    "CASE-003": {
+        "label": "🟠 CASE-003 · HIGH — Ransomware Precursor (Cobalt Strike)",
+        "severity": "HIGH",
+        "badge": "badge-high",
+        "desc": "PowerShell encoded execution + Cobalt Strike beacon on 3 dev endpoints",
+        "ts": "2026-03-20T22:08:55Z",
+        "alerts": 4,
+    },
+}
+
+PIPELINE_STEPS = [
+    "Case Ingestion",
+    "Data Retrieval",
+    "Playbook RAG",
+    "Threat Intel",
+    "Gemini Analysis",
+    "Recommendation",
+    "HITL Approval",
+    "Action Execution",
+    "Case Closure",
+]
+
+ALL_PLAYBOOKS = [
+    ("PB-003", "Credential Compromise Response"),
+    ("PB-007", "C2 Containment & Forensics"),
+    ("PB-012", "Ransomware Isolation Protocol"),
+    ("PB-019", "Phishing Response"),
+    ("PB-024", "Insider Threat Investigation"),
+]
+
+AGENT_COLORS = {
+    "ORCHESTRATOR":    ("#2E5FA3", "msg-orchestrator"),
+    "CASE-RETRIEVAL":  ("#0F6E56", "msg-case-retrieval"),
+    "RAG-PLAYBOOK":    ("#534AB7", "msg-rag-playbook"),
+    "THREAT-INTEL":    ("#B45309", "msg-threat-intel"),
+    "ACTION-EXEC":     ("#16A34A", "msg-action-exec"),
+    "GEMINI":          ("#D97706", "msg-gemini"),
+}
+
+def _now() -> str:
+    return datetime.now(timezone.utc).strftime("%H:%M:%S")
+
+def _severity_badge(sev: str) -> str:
+    cls = {"CRITICAL": "badge-critical", "HIGH": "badge-high", "MEDIUM": "badge-medium", "LOW": "badge-low"}.get(sev.upper(), "badge-low")
+    return f'<span class="{cls}">{sev}</span>'
+
+def _rep_color(score: int) -> str:
+    if score >= 70: return "rep-danger"
+    if score >= 40: return "rep-warn"
+    return "rep-clean"
+
+def _conf_bar(score: float) -> str:
+    pct = int(score * 100)
+    cls = "conf-bar-fill-green" if pct >= 80 else ("conf-bar-fill-amber" if pct >= 60 else "conf-bar-fill-red")
+    return f"""
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="conf-bar-container" style="flex:1">
+        <div class="{cls}" style="width:{pct}%"></div>
+      </div>
+      <span style="font-size:18px;font-weight:700;color:{'#22c55e' if pct>=80 else ('#f59e0b' if pct>=60 else '#ef4444')}">{pct}%</span>
+    </div>"""
+
+# ── Session state initialisation ───────────────────────────────────────────────
+def _init_state():
+    defaults = {
+        "selected_case": "CASE-001",
+        "pipeline_step": 0,       # 0 = not started
+        "case_data": None,
+        "rag_results": None,
+        "ioc_data": None,
+        "analysis": None,
+        "execution": None,
+        "closure": None,
+        "agent_log": [],
+        "audit_trail": [],
+        "hitl_state": "none",     # none | awaiting | override | reject | approved
+        "hitl_decision": None,
+        "override_playbook": None,
+        "analyst_feedback": None,
+        "analyst_name": "j.analyst@bank.com",
+        "error": None,
+        "running": False,
+    }
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+
+_init_state()
+
+# ── Helper: log agent message ──────────────────────────────────────────────────
+def _log(agent: str, message: str):
+    st.session_state["agent_log"].append({
+        "ts": _now(), "agent": agent, "message": message
+    })
+
+def _audit(actor: str, action: str, outcome: str):
+    st.session_state["audit_trail"].append({
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "actor": actor, "action": action, "outcome": outcome,
+    })
+
+# ── Sidebar ────────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("## 🛡️ Project Sentinel")
+    st.markdown('<p style="color:#4a9eff;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-top:-8px">SOC AIOps Platform · POC</p>', unsafe_allow_html=True)
+    st.divider()
+
+    st.markdown("### Select Case")
+    case_options = list(CASES.keys())
+    selected = st.selectbox(
+        "Case",
+        case_options,
+        format_func=lambda x: CASES[x]["label"],
+        index=case_options.index(st.session_state["selected_case"]),
+        label_visibility="collapsed",
+    )
+    if selected != st.session_state["selected_case"]:
+        # Reset state on case change
+        for k in ["pipeline_step","case_data","rag_results","ioc_data","analysis","execution","closure",
+                  "agent_log","audit_trail","hitl_state","hitl_decision","override_playbook",
+                  "analyst_feedback","error","running"]:
+            st.session_state[k] = None if k not in ["pipeline_step","agent_log","audit_trail","hitl_state"] else (0 if k=="pipeline_step" else ([] if k in ["agent_log","audit_trail"] else "none"))
+        st.session_state["selected_case"] = selected
+
+    case_id = st.session_state["selected_case"]
+    meta = CASES[case_id]
+
+    st.markdown(f"""
+    <div class="sentinel-card" style="margin-top:8px">
+      <div class="sentinel-card-header">Case Details</div>
+      <div style="margin-bottom:6px">{_severity_badge(meta['severity'])}</div>
+      <div style="font-size:12px;color:#e2e8f0;margin-bottom:6px">{meta['desc']}</div>
+      <div style="font-size:11px;color:#64748b">🕐 {meta['ts'][:16].replace('T',' ')} UTC</div>
+      <div style="font-size:11px;color:#64748b">🔔 {meta['alerts']} alerts correlated</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("### Analyst")
+    st.session_state["analyst_name"] = st.text_input(
+        "Analyst ID", value=st.session_state["analyst_name"], label_visibility="collapsed"
+    )
+
+    st.divider()
+    run_btn = st.button(
+        "▶ Run Analysis" if st.session_state["pipeline_step"] == 0 else "🔄 Reset & Re-run",
+        type="primary", use_container_width=True,
+        disabled=bool(st.session_state.get("running")),
+    )
+    if run_btn:
+        for k in ["pipeline_step","case_data","rag_results","ioc_data","analysis","execution","closure",
+                  "agent_log","audit_trail","hitl_state","hitl_decision","override_playbook",
+                  "analyst_feedback","error","running"]:
+            st.session_state[k] = 0 if k == "pipeline_step" else ([] if k in ["agent_log","audit_trail"] else ("none" if k == "hitl_state" else (False if k == "running" else None)))
+        st.session_state["running"] = True
+        st.rerun()
+
+# ── Main area top: progress bar ────────────────────────────────────────────────
+st.markdown("# 🛡️ Project Sentinel")
+st.markdown(f'<p style="color:#64748b;margin-top:-14px">Agentic AIOps · Security Operations Centre · {case_id}</p>', unsafe_allow_html=True)
+
+step = st.session_state.get("pipeline_step", 0)
+
+cols = st.columns(9)
+for i, (col, name) in enumerate(zip(cols, PIPELINE_STEPS)):
+    step_num = i + 1
+    if step > step_num:
+        icon, cls = "✓", "step-done"
+    elif step == step_num:
+        icon, cls = "⟳", "step-running"
+    else:
+        icon, cls = "○", "step-pending"
+    col.markdown(f'<div style="text-align:center"><span class="{cls}" style="font-size:18px">{icon}</span><br><span style="font-size:9px;color:#64748b">{step_num}. {name}</span></div>', unsafe_allow_html=True)
+
+st.divider()
+
+# ── Two-column layout: main + agent log ────────────────────────────────────────
+main_col, log_col = st.columns([3, 1])
+
+# ── AGENT LOG (right sidebar panel) ────────────────────────────────────────────
+with log_col:
+    st.markdown("### 📡 Agent Log")
+    log_container = st.container(height=650)
+    with log_container:
+        logs = st.session_state.get("agent_log", [])
+        if not logs:
+            st.markdown('<div style="color:#374151;font-size:12px;font-family:monospace">Waiting for pipeline...</div>', unsafe_allow_html=True)
+        for entry in logs:
+            agent = entry["agent"]
+            _, css_class = AGENT_COLORS.get(agent, ("#888", "msg-orchestrator"))
+            st.markdown(
+                f'<div class="{css_class}"><span style="color:#64748b">{entry["ts"]}</span> '
+                f'<strong>{agent}</strong><br>{entry["message"]}</div>',
+                unsafe_allow_html=True
+            )
+
+# ── MAIN CONTENT ───────────────────────────────────────────────────────────────
+with main_col:
+
+    # ── Run pipeline if triggered ──────────────────────────────────────────────
+    if st.session_state.get("running") and st.session_state["pipeline_step"] == 0:
+        try:
+            sys.path.insert(0, str(Path(__file__).parent))
+            from runner import (step_retrieve_case, step_query_rag, step_enrich_iocs,
+                                step_call_gemini, step_execute_actions, step_close_case)
+
+            # ── Step 1 ─────────────────────────────────────────────────────────
+            st.session_state["pipeline_step"] = 1
+            _log("ORCHESTRATOR", f"Pipeline initiated for {case_id}")
+            _audit("Sentinel Orchestrator (AI)", f"Pipeline started for {case_id}", "Initiated")
+            time.sleep(0.3)
+
+            # ── Step 2: Retrieve ───────────────────────────────────────────────
+            st.session_state["pipeline_step"] = 2
+            _log("CASE-RETRIEVAL", f"→ secops-mcp: get_case({case_id})")
+            with st.spinner("🔍 Case Retrieval Agent fetching data from SecOps..."):
+                case_data = step_retrieve_case(case_id)
+            st.session_state["case_data"] = case_data
+            _log("CASE-RETRIEVAL", f"✓ {len(case_data['alerts'])} alerts · {len(case_data['assets'])} assets · {len(case_data['raw_case']['iocs'].get('ips',[]))} IPs")
+            _audit("Case Retrieval Agent", f"Fetched case data for {case_id}", f"{len(case_data['alerts'])} alerts retrieved")
+            time.sleep(0.3)
+
+            # ── Step 3: RAG ────────────────────────────────────────────────────
+            st.session_state["pipeline_step"] = 3
+            raw_case = case_data["raw_case"]
+            case_desc = raw_case.get("description", "")
+            threat_ctx = f"{raw_case.get('title','')} {case_desc}"
+            _log("RAG-PLAYBOOK", f"→ vertex-rag: query_playbook_corpus('{threat_ctx[:50]}...')")
+            with st.spinner("📚 RAG Playbook Agent querying playbook corpus..."):
+                rag_results = step_query_rag(case_id, threat_ctx)
+            st.session_state["rag_results"] = rag_results
+            top = rag_results[0] if rag_results else {}
+            _log("RAG-PLAYBOOK", f"✓ Top match: {top.get('playbook_id')} score={top.get('relevance_score')}")
+            _audit("RAG Playbook Agent", "Queried playbook corpus", f"Top match: {top.get('playbook_id')} ({top.get('relevance_score')*100:.0f}%)")
+            time.sleep(0.3)
+
+            # ── Step 4: Intel ──────────────────────────────────────────────────
+            st.session_state["pipeline_step"] = 4
+            iocs = raw_case.get("iocs", {})
+            total_iocs = len(iocs.get("ips",[])) + len(iocs.get("hashes",[])) + len(iocs.get("domains",[]))
+            _log("THREAT-INTEL", f"→ gti-mcp: enriching {total_iocs} IoCs")
+            with st.spinner("🔬 Threat Intel Agent enriching IoCs..."):
+                ioc_data = step_enrich_iocs(case_id)
+            st.session_state["ioc_data"] = ioc_data
+            malicious = sum(1 for ip in ioc_data.get("ips",[]) if ip.get("reputation_score",0) >= 70)
+            _log("THREAT-INTEL", f"✓ {total_iocs} IoCs enriched · {malicious} malicious confirmed")
+            _audit("Threat Intel Agent", f"Enriched {total_iocs} IoCs via GTI/VT", f"{malicious} malicious")
+            time.sleep(0.3)
+
+            # ── Step 5: Gemini ─────────────────────────────────────────────────
+            st.session_state["pipeline_step"] = 5
+            _log("GEMINI", f"→ gemini-2.5-flash: analyse_case({case_id})")
+            _log("ORCHESTRATOR", "Consolidating case context · playbook match · IoC enrichments → Gemini")
+            with st.spinner("🧠 Gemini 2.5 Flash reasoning over case context..."):
+                analysis = step_call_gemini(case_id, case_data, rag_results, ioc_data)
+            st.session_state["analysis"] = analysis
+            conf = analysis.get("confidence_score", 0)
+            _log("GEMINI", f"✓ Analysis complete · confidence={conf*100:.0f}% · {len(analysis.get('mitre_techniques',[]))} MITRE techniques")
+            _audit("Gemini 2.5 Flash (via Orchestrator)", "Case analysis complete", f"Confidence: {conf*100:.0f}%")
+
+            # ── Step 6 → marks recommendation ready ───────────────────────────
+            st.session_state["pipeline_step"] = 6
+            _log("ORCHESTRATOR", f"Recommendation: {analysis.get('recommended_playbook_id')} — awaiting HITL approval")
+            time.sleep(0.3)
+
+            # ── Step 7: HITL ───────────────────────────────────────────────────
+            st.session_state["pipeline_step"] = 7
+            st.session_state["hitl_state"] = "awaiting"
+            st.session_state["running"] = False
+            _audit("Sentinel Orchestrator (AI)", "Pipeline paused for HITL approval", "AWAITING_ANALYST")
+            st.rerun()
+
+        except Exception as e:
+            st.session_state["error"] = str(e)
+            st.session_state["running"] = False
+            _log("ORCHESTRATOR", f"❌ ERROR: {e}")
+
+    # ── Display error if any ───────────────────────────────────────────────────
+    if st.session_state.get("error"):
+        st.error(f"⚠️ Pipeline Error: {st.session_state['error']}")
+        st.markdown("**Check your `.env` file has `GOOGLE_API_KEY`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` set.**")
+
+    # ── Step 2: Show case data ─────────────────────────────────────────────────
+    if st.session_state["pipeline_step"] >= 2 and st.session_state.get("case_data"):
+        cd = st.session_state["case_data"]
+        raw = cd["raw_case"]
+
+        with st.expander("📂 Step 2 — Data Retrieved from SecOps", expanded=False):
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("**Correlated Alerts**")
+                for a in cd["alerts"]:
+                    sev_color = "🔴" if a["severity"] == "CRITICAL" else "🟠"
+                    st.markdown(f"{sev_color} `{a['alert_id']}` **{a['rule_name']}**  \n`{a['timestamp'][:16]}` · src: `{a['source_ip']}`")
+            with c2:
+                st.markdown("**Affected Assets**")
+                for asset in cd["assets"]:
+                    st.markdown(f"💻 **{asset['hostname']}** (`{asset['ip']}`)  \n{asset['os']} · `{asset['user']}`")
+
+            st.markdown("**Raw CEF Log Sample**")
+            log_lines = cd["logs"].strip().split("\n")[:6]
+            st.code("\n".join(log_lines), language="text")
+
+    # ── Step 3: RAG results ────────────────────────────────────────────────────
+    if st.session_state["pipeline_step"] >= 3 and st.session_state.get("rag_results"):
+        rags = st.session_state["rag_results"]
+        with st.expander("📚 Step 3 — Playbook Matches (RAG)", expanded=False):
+            for i, r in enumerate(rags):
+                score_pct = int(r.get("relevance_score", 0) * 100)
+                prefix = "🥇" if i == 0 else ("🥈" if i == 1 else "🥉")
+                st.markdown(f"""
+                <div class="sentinel-card">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-weight:700;color:#e2e8f0">{prefix} {r['playbook_id']} — {r['playbook_name']}</span>
+                    <span style="font-size:20px;font-weight:800;color:{'#22c55e' if score_pct>=80 else '#f59e0b'}">{score_pct}%</span>
+                  </div>
+                  <div style="color:#94a3b8;font-size:12px;margin-top:8px;font-style:italic">"{r.get('excerpt','')}"</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # ── Step 4: IoC enrichments ────────────────────────────────────────────────
+    if st.session_state["pipeline_step"] >= 4 and st.session_state.get("ioc_data"):
+        ioc_data = st.session_state["ioc_data"]
+        with st.expander("🔬 Step 4 — IoC Enrichments (Threat Intel)", expanded=False):
+            all_iocs = (
+                [(d, "ip") for d in ioc_data.get("ips", [])] +
+                [(d, "hash") for d in ioc_data.get("hashes", [])] +
+                [(d, "domain") for d in ioc_data.get("domains", [])]
+            )
+            for ioc, itype in all_iocs:
+                indicator = ioc.get("ip") or ioc.get("hash") or ioc.get("domain") or "?"
+                score = ioc.get("reputation_score", 0)
+                verdict = ioc.get("verdict", "Unknown")
+                mitre = ioc.get("mitre_techniques", [])
+                rep_cls = _rep_color(score)
+                mitre_html = " ".join(f'<span class="mitre-badge">{t}</span>' for t in mitre)
+                st.markdown(f"""
+                <div class="sentinel-card">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                    <div>
+                      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#60a5fa">{itype.upper()}</span>
+                      <span style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px;color:#e2e8f0;margin-left:8px">{indicator[:60]}</span><br>
+                      <span style="color:#94a3b8;font-size:12px">{ioc.get('classification','Unknown')}</span>
+                    </div>
+                    <div style="text-align:right">
+                      <span class="{rep_cls}" style="font-size:22px">{score}</span>
+                      <div style="font-size:10px;color:#64748b">rep. score</div>
+                    </div>
+                  </div>
+                  <div style="margin-top:6px">
+                    <span style="font-size:11px;color:#94a3b8">Family: {ioc.get('malware_family') or 'Unknown'} · Campaign: {ioc.get('campaign') or 'Unknown'} · Verdict: <strong style="color:{'#ef4444' if 'Malicious' in verdict else '#f59e0b' if 'Suspicious' in verdict else '#22c55e'}">{verdict}</strong></span>
+                  </div>
+                  <div style="margin-top:6px">{mitre_html}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # ── Step 5/6: Gemini analysis card ────────────────────────────────────────
+    if st.session_state["pipeline_step"] >= 6 and st.session_state.get("analysis"):
+        analysis = st.session_state["analysis"]
+        sev = analysis.get("severity", "HIGH")
+        conf = analysis.get("confidence_score", 0)
+        mitre = analysis.get("mitre_techniques", [])
+        ioc_enrichments = analysis.get("ioc_enrichments", [])
+
+        st.markdown("---")
+        st.markdown("## 🧠 Gemini Analysis — SOC Case Report")
+
+        # Main analysis card
+        mitre_html = " ".join(
+            f'<span class="mitre-badge" title="{t.get("technique_name","")} · {t.get("tactic","")}">{t.get("technique_id","")}</span>'
+            for t in mitre
+        )
+        st.markdown(f"""
+        <div class="sentinel-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+            <div style="flex:2;min-width:200px">
+              <div class="sentinel-card-header">Threat Classification</div>
+              <div style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:8px">{analysis.get('threat_classification','')}</div>
+              <div style="margin-bottom:8px">{_severity_badge(sev)}</div>
+              <p style="color:#94a3b8;font-size:13px;line-height:1.6">{analysis.get('case_summary','')}</p>
+            </div>
+            <div style="flex:1;min-width:160px">
+              <div class="sentinel-card-header">Confidence</div>
+              {_conf_bar(conf)}
+              <div style="margin-top:16px">
+                <div class="sentinel-card-header">Blast Radius</div>
+                <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_endpoints',0)}</div>
+                <div style="font-size:11px;color:#64748b">endpoints</div>
+                <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_users',0)}</div>
+                <div style="font-size:11px;color:#64748b">user accounts</div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:16px">
+            <div class="sentinel-card-header">MITRE ATT&CK Techniques</div>
+            {mitre_html if mitre_html else '<span style="color:#64748b;font-size:12px">None identified</span>'}
+          </div>
+          <div style="margin-top:16px;padding:12px;background:#0a1628;border-radius:8px;border-left:3px solid #2563eb">
+            <div class="sentinel-card-header">Recommended Playbook</div>
+            <div style="font-weight:700;color:#60a5fa;font-size:14px">
+              {analysis.get('recommended_playbook_id','')} — {analysis.get('recommended_playbook_name','')}
+            </div>
+            <div style="color:#94a3b8;font-size:12px;margin-top:4px">{analysis.get('playbook_rationale','')}</div>
+            <div style="color:#64748b;font-size:11px;margin-top:4px">⏱ Est. containment: {analysis.get('estimated_containment_time_minutes',0)} min</div>
+          </div>
+          <div style="margin-top:12px">
+            <div class="sentinel-card-header">Required Analyst Actions</div>
+            {''.join(f'<div style="color:#e2e8f0;font-size:12px;padding:2px 0">▸ {a}</div>' for a in analysis.get('analyst_actions_required',[]))}
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── Step 7: HITL Panel ─────────────────────────────────────────────────────
+    if st.session_state["pipeline_step"] >= 7 and st.session_state["hitl_state"] != "none":
+        hitl = st.session_state["hitl_state"]
+        analysis = st.session_state.get("analysis", {})
+
+        if hitl == "awaiting":
+            st.markdown("---")
+            st.markdown(f"""
+            <div class="hitl-panel">
+              <div class="hitl-title">⏸ Human-in-the-Loop Approval Required</div>
+              <div class="hitl-subtitle">Review the Gemini analysis above, then choose an action to proceed.</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            col_a, col_o, col_r = st.columns(3)
+            with col_a:
+                if st.button("✅ Accept Recommendation", type="primary", use_container_width=True):
+                    st.session_state["hitl_state"] = "approved"
+                    st.session_state["hitl_decision"] = "Accepted"
+                    _log("ORCHESTRATOR", f"HITL: Accepted by {st.session_state['analyst_name']}")
+                    _audit(st.session_state["analyst_name"], f"HITL: Accepted {analysis.get('recommended_playbook_id')}", "Approved")
+                    from sentinel.tools.snow_mcp import add_worknote
+                    raw = st.session_state["case_data"]["raw_case"]
+                    snow_ref = raw.get("snow_incident_ref", "INC0000000")
+                    add_worknote(snow_ref, f"HITL DECISION: Accepted by {st.session_state['analyst_name']} at {datetime.now(timezone.utc).isoformat()}", author=st.session_state["analyst_name"])
+                    st.session_state["pipeline_step"] = 8
+                    st.session_state["running"] = True
+                    st.rerun()
+            with col_o:
+                if st.button("🔄 Override Playbook", use_container_width=True):
+                    st.session_state["hitl_state"] = "override"
+                    st.rerun()
+            with col_r:
+                if st.button("❌ Reject & Revise", use_container_width=True):
+                    st.session_state["hitl_state"] = "reject"
+                    st.rerun()
+
+        elif hitl == "override":
+            st.markdown("---")
+            st.markdown('<div class="sentinel-card"><div class="hitl-title" style="text-align:left">🔄 Override — Select Alternative Playbook</div>', unsafe_allow_html=True)
+
+            pb_options = {pid: f"{pid} — {pname}" for pid, pname in ALL_PLAYBOOKS}
+            selected_pb = st.selectbox(
+                "Select alternative playbook",
+                list(pb_options.keys()),
+                format_func=lambda x: pb_options[x],
+                index=0,
+            )
+            override_reason = st.text_area("Reason for override (optional)", placeholder="e.g. C2 containment is higher priority than credential reset given active exfil...", height=80)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Confirm Override", type="primary", use_container_width=True):
+                    _log("ORCHESTRATOR", f"HITL: Override — analyst selected {selected_pb}")
+                    _audit(st.session_state["analyst_name"], f"HITL: Override → {selected_pb}", override_reason or "No reason given")
+                    from sentinel.tools.snow_mcp import add_worknote
+                    raw = st.session_state["case_data"]["raw_case"]
+                    snow_ref = raw.get("snow_incident_ref","INC0000000")
+                    add_worknote(snow_ref, f"HITL OVERRIDE by {st.session_state['analyst_name']}: {selected_pb} selected. Reason: {override_reason or 'None given'}", author=st.session_state["analyst_name"])
+                    # Re-run Gemini with override
+                    st.session_state["override_playbook"] = selected_pb
+                    with st.spinner(f"🧠 Re-evaluating with {selected_pb}..."):
+                        from runner import step_call_gemini
+                        new_analysis = step_call_gemini(
+                            case_id, st.session_state["case_data"],
+                            st.session_state["rag_results"], st.session_state["ioc_data"],
+                            override_playbook=selected_pb,
+                        )
+                    st.session_state["analysis"] = new_analysis
+                    _log("GEMINI", f"✓ Re-analysis complete with {selected_pb} · confidence={new_analysis.get('confidence_score',0)*100:.0f}%")
+                    st.session_state["hitl_state"] = "approved"
+                    st.session_state["hitl_decision"] = f"Overridden → {selected_pb}"
+                    st.session_state["pipeline_step"] = 8
+                    st.session_state["running"] = True
+                    st.rerun()
+            with col2:
+                if st.button("← Back", use_container_width=True):
+                    st.session_state["hitl_state"] = "awaiting"
+                    st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        elif hitl == "reject":
+            st.markdown("---")
+            st.markdown('<div class="sentinel-card"><div class="hitl-title" style="text-align:left">❌ Reject & Revise — Provide Analyst Feedback</div>', unsafe_allow_html=True)
+
+            feedback = st.text_area(
+                "Describe what the AI missed or should reconsider:",
+                placeholder="e.g. The ransomware isolation protocol should take priority. The blast radius likely extends beyond dev workstations — check for shared file server access...",
+                height=120,
+            )
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔁 Submit Feedback & Re-analyse", type="primary", use_container_width=True, disabled=not feedback):
+                    _log("ORCHESTRATOR", f"HITL: Rejected — feedback submitted by {st.session_state['analyst_name']}")
+                    _audit(st.session_state["analyst_name"], "HITL: Rejected — feedback submitted", feedback)
+                    from sentinel.tools.snow_mcp import add_worknote
+                    raw = st.session_state["case_data"]["raw_case"]
+                    snow_ref = raw.get("snow_incident_ref","INC0000000")
+                    add_worknote(snow_ref, f"HITL REJECT by {st.session_state['analyst_name']}: {feedback}", author=st.session_state["analyst_name"])
+                    st.session_state["analyst_feedback"] = feedback
+                    with st.spinner("🧠 Gemini re-analysing with analyst feedback..."):
+                        from runner import step_call_gemini
+                        new_analysis = step_call_gemini(
+                            case_id, st.session_state["case_data"],
+                            st.session_state["rag_results"], st.session_state["ioc_data"],
+                            analyst_feedback=feedback,
+                        )
+                    st.session_state["analysis"] = new_analysis
+                    _log("GEMINI", f"✓ Revised analysis complete · new confidence={new_analysis.get('confidence_score',0)*100:.0f}%")
+                    _audit("Gemini 2.5 Flash", "Re-analysis complete with analyst feedback", f"confidence={new_analysis.get('confidence_score',0)*100:.0f}%")
+                    st.session_state["hitl_state"] = "awaiting"
+                    st.rerun()
+            with col2:
+                if st.button("← Back", use_container_width=True):
+                    st.session_state["hitl_state"] = "awaiting"
+                    st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Step 8: Action Execution ───────────────────────────────────────────────
+    if st.session_state.get("running") and st.session_state["pipeline_step"] == 8:
+        try:
+            from runner import step_execute_actions
+            analysis = st.session_state["analysis"]
+            _log("ACTION-EXEC", f"→ secops-mcp: trigger_playbook({analysis.get('recommended_playbook_id')}, {case_id})")
+            with st.spinner("⚙️ Action Executor agent executing SOAR playbook..."):
+                exec_result = step_execute_actions(case_id, analysis, st.session_state["analyst_name"])
+            st.session_state["execution"] = exec_result
+            steps = exec_result["execution"].get("action_steps", [])
+            _log("ACTION-EXEC", f"✓ {len(steps)} actions executed · execution_id={exec_result['execution'].get('execution_id','')[:20]}")
+            _audit("Action Executor Agent", f"Playbook {analysis.get('recommended_playbook_id')} executed", f"{len(steps)} steps")
+
+            # Step 9: Close
+            st.session_state["pipeline_step"] = 9
+            from runner import step_close_case
+            _log("ACTION-EXEC", f"→ snow-mcp: close_incident({exec_result['snow_ref']})")
+            with st.spinner("📋 Closing ServiceNow ticket and generating audit trail..."):
+                closure = step_close_case(case_id, analysis, exec_result,
+                                          analyst_name=st.session_state["analyst_name"],
+                                          hitl_decision=st.session_state.get("hitl_decision","Accepted"))
+            st.session_state["closure"] = closure
+            _log("ACTION-EXEC", f"✓ {closure['snow_ref']} closed · RESOLVED")
+            _audit("Sentinel Orchestrator (AI)", f"{closure['snow_ref']} closed", "RESOLVED")
+            st.session_state["pipeline_step"] = 10
+            st.session_state["running"] = False
+            st.rerun()
+
+        except Exception as e:
+            st.session_state["error"] = str(e)
+            st.session_state["running"] = False
+            _log("ORCHESTRATOR", f"❌ ERROR in action execution: {e}")
+
+    # ── Step 8 display: action execution log ───────────────────────────────────
+    if st.session_state["pipeline_step"] >= 9 and st.session_state.get("execution"):
+        exec_data = st.session_state["execution"]
+        steps = exec_data["execution"].get("action_steps", [])
+        playbook_id = st.session_state["analysis"].get("recommended_playbook_id","")
+        playbook_name = st.session_state["analysis"].get("recommended_playbook_name","")
+
+        st.markdown("---")
+        st.markdown(f"## ⚙️ Step 8 — SOAR Action Execution")
+        st.markdown(f'<div style="color:#60a5fa;font-size:13px;font-weight:600">{playbook_id} — {playbook_name}</div>', unsafe_allow_html=True)
+
+        action_container = st.container()
+        with action_container:
+            for s in steps:
+                status = s.get("status","")
+                icon = "✅" if status == "success" else ("⏳" if status == "queued" else ("🔄" if status == "in_progress" else "❌"))
+                color_cls = "action-line-success" if status == "success" else ("action-line-queued" if status in ("queued","in_progress") else "action-line-running")
+                st.markdown(
+                    f'<div class="{color_cls}">{icon} Step {s["step"]}: {s["action"]} '
+                    f'<span style="color:#475569">· {s["target"]} · {s["duration_seconds"]}s · <strong>{status.upper()}</strong></span></div>',
+                    unsafe_allow_html=True
+                )
+
+    # ── Step 9: SNOW ticket card + audit trail ─────────────────────────────────
+    if st.session_state["pipeline_step"] >= 10 and st.session_state.get("closure"):
+        closure = st.session_state["closure"]
+        snow_state = closure.get("snow_state", {})
+        analysis = st.session_state.get("analysis", {})
+
+        st.markdown("---")
+        st.markdown("## 📋 Step 9 — Case Closure & Audit Trail")
+
+        # SNOW ticket card
+        opened_at = snow_state.get("opened_at","—")[:16].replace("T"," ") if snow_state.get("opened_at") else "—"
+        resolved_at = snow_state.get("resolved_at","—")
+        sla_str = "✅ Resolved within SLA"
+
+        st.markdown(f"""
+        <div class="snow-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+            <div>
+              <div class="sentinel-card-header">ServiceNow Incident</div>
+              <div class="snow-resolved">🟢 {closure['snow_ref']}</div>
+              <div style="font-size:12px;color:#22c55e;margin-top:2px">{sla_str}</div>
+            </div>
+            <div style="text-align:right">
+              <span style="background:#14532d;color:#86efac;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700">RESOLVED</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px;flex-wrap:wrap">
+            <div><div class="snow-field">Priority</div><div class="snow-value">{snow_state.get('priority','—')}</div></div>
+            <div><div class="snow-field">Opened</div><div class="snow-value">{opened_at} UTC</div></div>
+            <div><div class="snow-field">Category</div><div class="snow-value">Security — {snow_state.get('subcategory','Cyber Incident')}</div></div>
+            <div><div class="snow-field">Threat Class</div><div class="snow-value">{analysis.get('threat_classification','—')}</div></div>
+            <div><div class="snow-field">HITL Decision</div><div class="snow-value">{st.session_state.get('hitl_decision','Accepted')}</div></div>
+            <div><div class="snow-field">Assigned</div><div class="snow-value" style="font-size:11px">Sentinel AI + {st.session_state.get('analyst_name','')}</div></div>
+          </div>
+          <div style="margin-top:12px">
+            <div class="snow-field">Resolution Notes Preview</div>
+            <div style="background:#0a1a0a;border-radius:6px;padding:10px;margin-top:4px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#94a3b8;white-space:pre-wrap">{closure['close_notes'][:600]}...</div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Audit trail table
+        st.markdown("### 📊 Full Audit Trail")
+        audit = st.session_state.get("audit_trail", [])
+        if audit:
+            st.markdown("""
+            <style>
+            .audit-table { width:100%; border-collapse:collapse; font-size:12px; }
+            .audit-table th { background:#0f172a; color:#4a9eff; padding:8px; text-align:left; border-bottom:1px solid #1e3a5f; }
+            .audit-table td { padding:8px; border-bottom:1px solid #1e2a3a; color:#94a3b8; }
+            .audit-table tr:hover td { background:#0a1628; }
+            </style>
+            """, unsafe_allow_html=True)
+            rows = "".join(
+                f"<tr><td style='font-family:monospace;color:#60a5fa'>{e['timestamp']}</td><td style='color:#e2e8f0'>{e['actor']}</td><td>{e['action']}</td><td style='color:#22c55e'>{e['outcome']}</td></tr>"
+                for e in audit
+            )
+            st.markdown(f'<table class="audit-table"><thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Outcome</th></tr></thead><tbody>{rows}</tbody></table>', unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div style="text-align:center;margin-top:24px;padding:16px;background:linear-gradient(135deg,#0a1f0a,#051505);border-radius:12px;border:1px solid #16a34a">
+          <div style="font-size:28px">🛡️ ✅</div>
+          <div style="font-size:16px;font-weight:700;color:#22c55e;margin:4px 0">Case Resolved — Project Sentinel</div>
+          <div style="font-size:12px;color:#64748b">Full audit trail written to ServiceNow · {analysis.get('estimated_containment_time_minutes',0)} min containment</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── Welcome screen (pipeline not started) ─────────────────────────────────
+    if st.session_state["pipeline_step"] == 0:
+        st.markdown("""
+        <div style="text-align:center;padding:60px 40px">
+          <div style="font-size:72px;margin-bottom:16px">🛡️</div>
+          <h2 style="color:#e2e8f0;font-weight:800">Project Sentinel</h2>
+          <p style="color:#64748b;font-size:15px;max-width:500px;margin:0 auto 24px">
+            Next-generation agentic AIOps for the Security Operations Centre.<br>
+            Select a case from the sidebar and click <strong style="color:#4a9eff">Run Analysis</strong> to begin.
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:600px;margin:0 auto">
+            <div class="sentinel-card" style="text-align:center">
+              <div style="font-size:28px">🤖</div>
+              <div style="font-size:12px;color:#94a3b8;margin-top:8px">5 specialist AI agents collaborating in real time</div>
+            </div>
+            <div class="sentinel-card" style="text-align:center">
+              <div style="font-size:28px">📚</div>
+              <div style="font-size:12px;color:#94a3b8;margin-top:8px">RAG-powered dynamic playbook selection</div>
+            </div>
+            <div class="sentinel-card" style="text-align:center">
+              <div style="font-size:28px">✋</div>
+              <div style="font-size:12px;color:#94a3b8;margin-top:8px">Human-in-the-loop approval with full audit trail</div>
+            </div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)

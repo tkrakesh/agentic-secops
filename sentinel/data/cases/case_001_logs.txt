@@ -1,0 +1,16 @@
+Mar 20 02:14:33 DESKTOP-DB42 CEF:0|Microsoft|Windows AD|10.0|4624|Account Logon|7|src=10.0.14.52 suser=j.smith@bank.com cs1=Domain Administrator cs2=NTLM cs3=Interactive
+Mar 20 02:14:55 SRV-FILE01 CEF:0|Microsoft|Windows|10.0|4648|Explicit Credential Logon|7|src=10.0.14.52 suser=j.smith@bank.com dhost=SRV-FILE01 cs1=SMB
+Mar 20 02:15:12 SRV-BACKUP01 CEF:0|Microsoft|Windows|10.0|4648|Explicit Credential Logon|7|src=10.0.14.52 suser=j.smith@bank.com dhost=SRV-BACKUP01 cs1=SMB
+Mar 20 02:16:34 SRV-APP03 CEF:0|Microsoft|Windows|10.0|4648|Explicit Credential Logon|7|src=10.0.14.52 suser=j.smith@bank.com dhost=SRV-APP03 cs1=SMB
+Mar 20 02:17:01 WKS-IT-012 CEF:0|Microsoft|Windows|10.0|4648|Explicit Credential Logon|7|src=10.0.14.52 suser=j.smith@bank.com dhost=WKS-IT-012 cs1=SMB
+Mar 20 02:17:45 DESKTOP-DB42 CEF:0|CrowdStrike|Falcon|6.50|ProcessCreate|PsExec service install|8|src=10.0.14.52 sproc=psexec.exe dhost=SRV-APP03 cs1=PSEXESVC
+Mar 20 02:19:14 SRV-FILE01 CEF:0|Microsoft|Windows|10.0|4625|Account Logon Failed|5|src=10.0.14.52 suser=administrator cs2=NTLM cs3=3
+Mar 20 02:19:22 SRV-FILE01 CEF:0|Microsoft|Windows|10.0|4624|Account Logon|7|src=10.0.14.52 suser=j.smith@bank.com cs1=Domain Administrator
+Mar 20 02:20:00 SRV-APP03 CEF:0|CrowdStrike|Falcon|6.50|NetworkConnect|External C2 Attempt|9|src=10.0.14.55 dst=45.33.32.156 dpt=443 sproc=psexec.exe cs1=BLOCKED
+Mar 20 02:21:17 DESKTOP-DB42 CEF:0|Microsoft|Windows|10.0|4688|Process Create|7|src=10.0.14.52 sproc=cmd.exe cs1=cmd.exe /c net user /domain cs2=j.smith
+Mar 20 02:22:45 DESKTOP-DB42 CEF:0|Microsoft|Windows|10.0|4688|Process Create|8|src=10.0.14.52 sproc=whoami.exe cs1=whoami /priv
+Mar 20 02:27:41 SRV-APP03 CEF:0|CrowdStrike|Falcon|6.50|RemoteExecution|PsExec Detected|9|src=10.0.14.52 dhost=10.0.14.55 sproc=psexec.exe cs1=PSEXESVC cs2=HIGH_CONFIDENCE
+Mar 20 02:27:55 SRV-APP03 CEF:0|Microsoft|Windows|10.0|7045|Service Install|8|shost=SRV-APP03 cs1=PSEXESVC cs2=LocalSystem cs3=kernel
+Mar 20 02:28:10 DESKTOP-DB42 CEF:0|Palo Alto|Firewall|10.1|THREAT|Outbound blocked|9|src=10.0.14.52 dst=45.33.32.156 dpt=4444 proto=TCP cs1=C2_BLOCKED rule=block_c2_ips
+Mar 20 02:31:05 DESKTOP-DB42 CEF:0|Palo Alto|Firewall|10.1|TRAFFIC|Outbound blocked|9|src=10.0.14.52 dst=45.33.32.156 dpt=443 proto=TCP cs1=BLOCKED
+Mar 20 02:33:00 SecOps CEF:0|Google|SecOps SIEM|1.0|CORRELATION|Lateral Movement Pattern Confirmed|9|src=10.0.14.52 targets=14 timespan=23m rule=LAT_MOVE_SEQ_HOST_ACCESS cs1=CASE-001

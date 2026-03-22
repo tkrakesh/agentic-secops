@@ -1,0 +1,60 @@
+{
+  "template_inc": {
+    "number": "INC{INC_NUMBER}",
+    "sys_id": "SNOW-SYS-{CASE_ID}",
+    "priority": "{PRIORITY}",
+    "category": "Security",
+    "subcategory": "Cyber Incident",
+    "state": "Resolved",
+    "opened_at": "{OPENED_AT}",
+    "resolved_at": "{RESOLVED_AT}",
+    "sla_due": "{SLA_DUE}",
+    "sla_status": "{SLA_STATUS}",
+    "assigned_to": "Sentinel Orchestrator (AI) + {ANALYST_NAME} (Human Approval)",
+    "assignment_group": "SOC Tier 2",
+    "short_description": "{SHORT_DESCRIPTION}",
+    "description": "{CASE_DESCRIPTION}",
+    "close_code": "Resolved by Change",
+    "close_notes": "{CLOSE_NOTES}",
+    "work_notes": [],
+    "approval_records": []
+  },
+  "mock_incidents": {
+    "INC0041892": {
+      "number": "INC0041892",
+      "priority": "1 - Critical",
+      "state": "Open",
+      "category": "Security",
+      "subcategory": "Lateral Movement",
+      "short_description": "Lateral movement - compromised domain admin account j.smith",
+      "opened_at": "2026-03-20T02:33:00Z",
+      "sla_due": "2026-03-20T03:33:00Z",
+      "assigned_to": "Unassigned",
+      "linked_case": "CASE-001"
+    },
+    "INC0041956": {
+      "number": "INC0041956",
+      "priority": "2 - High",
+      "state": "Open",
+      "category": "Security",
+      "subcategory": "Data Exfiltration",
+      "short_description": "DNS tunnelling C2 exfil - 4.2GB outbound from WKS-FIN-017",
+      "opened_at": "2026-03-20T11:55:00Z",
+      "sla_due": "2026-03-20T13:55:00Z",
+      "assigned_to": "Unassigned",
+      "linked_case": "CASE-002"
+    },
+    "INC0042103": {
+      "number": "INC0042103",
+      "priority": "2 - High",
+      "state": "Open",
+      "category": "Security",
+      "subcategory": "Malware - Ransomware Precursor",
+      "short_description": "Cobalt Strike beacon + encoded PS on 3 dev endpoints",
+      "opened_at": "2026-03-20T22:21:00Z",
+      "sla_due": "2026-03-21T00:21:00Z",
+      "assigned_to": "Unassigned",
+      "linked_case": "CASE-003"
+    }
+  }
+}

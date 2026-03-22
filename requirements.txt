@@ -1,0 +1,10 @@
+google-adk>=0.1.0
+google-genai>=0.2.0
+vertexai>=1.75.0
+pydantic>=2.9.0
+streamlit>=1.41.0
+mcp>=1.0.0
+google-auth>=2.36.0
+google-cloud-discoveryengine>=0.13.5
+# Optional deps for development
+python-dotenv>=1.0.0

@@ -1,0 +1,58 @@
+{
+  "psexec-c2.malicious-domain.ru": {
+    "domain": "psexec-c2.malicious-domain.ru",
+    "reputation_score": 89,
+    "classification": "Malicious - C2 Domain",
+    "malware_family": "Lazarus Group C2 Infrastructure",
+    "campaign": "Operation ShadowAdmin",
+    "registered_date": "2026-03-14T00:00:00Z",
+    "registrar": "Namecheap (privacy protected)",
+    "resolved_ips": ["45.33.32.156"],
+    "mitre_techniques": ["T1071.001", "T1102"],
+    "tags": ["c2", "lazarus-group", "newly-registered", "apt"],
+    "threat_intel_source": "Google Threat Intelligence",
+    "verdict": "Malicious"
+  },
+  "c2tunnel-exfil.xyz": {
+    "domain": "c2tunnel-exfil.xyz",
+    "reputation_score": 93,
+    "classification": "Malicious - DNS Tunnel / Exfil Domain",
+    "malware_family": "Iodine DNS Tunnel (FIN7 variant)",
+    "campaign": "FIN7 DNS Exfil Campaign",
+    "registered_date": "2026-03-18T00:00:00Z",
+    "registrar": "GoDaddy (privacy protected)",
+    "resolved_ips": ["185.220.101.47"],
+    "mitre_techniques": ["T1071.004", "T1048.003", "T1041"],
+    "tags": ["dns-tunnel", "exfil", "fin7", "newly-registered"],
+    "threat_intel_source": "Google Threat Intelligence + VirusTotal",
+    "verdict": "Malicious"
+  },
+  "data-leak.ru": {
+    "domain": "data-leak.ru",
+    "reputation_score": 85,
+    "classification": "Malicious - Exfil Drop Zone",
+    "malware_family": "FIN7 Infrastructure",
+    "campaign": "FIN7 DNS Exfil Campaign",
+    "registered_date": "2025-09-01T00:00:00Z",
+    "registrar": "REG.RU",
+    "resolved_ips": ["185.220.101.47"],
+    "mitre_techniques": ["T1041", "T1071.004"],
+    "tags": ["exfil", "dropzone", "fin7", "russia"],
+    "threat_intel_source": "Google Threat Intelligence",
+    "verdict": "Malicious"
+  },
+  "cobalt-c2.badactor.net": {
+    "domain": "cobalt-c2.badactor.net",
+    "reputation_score": 97,
+    "classification": "Malicious - Cobalt Strike C2",
+    "malware_family": "Cobalt Strike (BlackCat/ALPHV affiliate)",
+    "campaign": "BlackCat/ALPHV Ransomware Affiliate - Q1 2026",
+    "registered_date": "2026-01-28T00:00:00Z",
+    "registrar": "Hostinger (privacy protected)",
+    "resolved_ips": ["78.128.113.44"],
+    "mitre_techniques": ["T1055", "T1059.001", "T1071.001"],
+    "tags": ["cobalt-strike", "c2", "ransomware", "blackcat", "alphv"],
+    "threat_intel_source": "Google Threat Intelligence",
+    "verdict": "Malicious"
+  }
+}

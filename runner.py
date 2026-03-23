@@ -62,134 +62,165 @@ async def run_adk_pipeline(case_id: str, session_id: str, analyst_name: str, yie
     ioc_data = {"ips": [], "hashes": [], "domains": []}
     
     hit_hitl = False
-    
     for attempt in range(5):
         content = types.Content(role='user', parts=[types.Part.from_text(text=query)])
         events_iter = runner.run_async(session_id=session_id, user_id=analyst_name, new_message=content)
         
-        async for event in events_iter:
-            author = event.author.upper() if event.author else "SYSTEM"
-            
-            # Determine the pipeline step roughly by author
-            if author == "CASERETRIEVALAGENT": yield {"type": "step", "step": 2}
-            elif author == "RAGPLAYBOOKAGENT": yield {"type": "step", "step": 3}
-            elif author == "THREATINTELAGENT": yield {"type": "step", "step": 4}
-            elif author == "SOCORCHESTRATOR": yield {"type": "step", "step": 5}
-            
-            if event.content and event.content.parts:
-                for part in event.content.parts:
-                    # Intercept Tool Calls (for logging)
-                    if part.function_call:
-                        name = part.function_call.name
-                        args = dict(part.function_call.args) if part.function_call.args else {}
-                        if name != "transfer_to_agent":
-                            msg = f"→ invoking tool: {name}(...)"
-                            yield {"type": "log", "agent": author, "message": msg}
-                            await asyncio.sleep(yield_delay)
-                    
-                    # Intercept Tool Responses (to build UI state)
-                    elif part.function_response:
-                        name = part.function_response.name
+        try:
+            async for event in events_iter:
+                author = event.author.upper() if event.author else "SYSTEM"
+                
+                # Determine the pipeline step roughly by author
+                if author == "CASERETRIEVALAGENT": yield {"type": "step", "step": 2}
+                elif author == "RAGPLAYBOOKAGENT": yield {"type": "step", "step": 3}
+                elif author == "THREATINTELAGENT": yield {"type": "step", "step": 4}
+                elif author == "SOCORCHESTRATOR": yield {"type": "step", "step": 5}
+                
+                if event.content and event.content.parts:
+                    for part in event.content.parts:
+                        # Intercept Tool Calls (for logging)
+                        if part.function_call:
+                            name = part.function_call.name
+                            args = dict(part.function_call.args) if part.function_call.args else {}
+                            if name != "transfer_to_agent":
+                                msg = f"→ invoking tool: {name}(...)"
+                                yield {"type": "log", "agent": author, "message": msg}
+                                await asyncio.sleep(yield_delay)
                         
-                        try:
-                            from google.protobuf.json_format import MessageToDict
-                            resp = MessageToDict(part.function_response.response._pb) if hasattr(part.function_response.response, "_pb") else dict(part.function_response.response)
-                        except Exception:
-                            resp = dict(part.function_response.response) if hasattr(part.function_response.response, "items") else part.function_response.response
-                        
-                        def unwrap_value(r, prefer_list=False):
-                            if not isinstance(r, dict): 
-                                return [r] if prefer_list and not isinstance(r, list) else r
-                            for k in ["result", "value", "list", "items", "alerts", "assets", "logs", name]:
-                                if k in r: 
-                                    val = r[k]
-                                    return [val] if prefer_list and not isinstance(val, list) else val
-                            if len(r) == 1: 
-                                val = list(r.values())[0]
-                                return [val] if prefer_list and not isinstance(val, list) else val
-                            return [r] if prefer_list else r
-
-                        if name == "get_case": case_data["raw_case"] = resp
-                        elif name == "list_alerts": case_data["alerts"] = unwrap_value(resp, True)
-                        elif name == "get_raw_logs": case_data["logs"] = unwrap_value(resp, False)
-                        elif name == "get_affected_assets": case_data["assets"] = unwrap_value(resp, True)
-                        elif name == "query_playbook_corpus": 
-                            lst = unwrap_value(resp, True)
-                            if isinstance(lst, list): rag_results.extend(lst)
-                        elif name == "enrich_ip": ioc_data["ips"].append(resp)
-                        elif name == "enrich_hash": ioc_data["hashes"].append(resp)
-                        elif name == "enrich_domain": ioc_data["domains"].append(resp)
-                        
-                        if name in ["get_affected_assets"]:
-                            yield {"type": "state", "key": "case_data", "data": case_data}
-                            yield {"type": "log", "agent": "CASE-RETRIEVAL", "message": f"✓ Fetched {len(case_data.get('alerts',[]))} alerts and {len(case_data.get('assets',[]))} assets."}
-                        elif name == "query_playbook_corpus":
-                            yield {"type": "state", "key": "rag_results", "data": rag_results}
-                            top = rag_results[0] if rag_results else {}
-                            yield {"type": "log", "agent": "RAG-PLAYBOOK", "message": f"✓ Top match: {top.get('playbook_id')} score={top.get('relevance_score')}"}
-                        elif name in ["enrich_ip", "enrich_hash", "enrich_domain"]:
-                            yield {"type": "state", "key": "ioc_data", "data": ioc_data}
-                            yield {"type": "log", "agent": "THREAT-INTEL", "message": f"✓ Enriched IoC from {name}"}
-
-                    # Agent textual responses
-                    elif part.text:
-                        # Check if this is the structured schema output from SOCOrchestrator
-                        if author == "SOCORCHESTRATOR":
-                            extracted_json = None
+                        # Intercept Tool Responses (to build UI state)
+                        elif part.function_response:
+                            name = part.function_response.name
+                            
                             try:
-                                extracted_json = json.loads(part.text)
-                            except json.JSONDecodeError:
-                                import re
-                                match = re.search(r'\{.*\}', part.text, re.DOTALL)
-                                if match:
-                                    try:
-                                        extracted_json = json.loads(match.group())
-                                    except Exception:
-                                        pass
-                                        
-                            if extracted_json and "recommended_playbook_id" in extracted_json:
-                                # Also check if it's the actual outer JSON
-                                if "case_summary" in extracted_json:
-                                    yield {"type": "state", "key": "analysis", "data": extracted_json}
-                                    conf = extracted_json.get("confidence_score", 0)
-                                    yield {"type": "step", "step": 6}
-                                    yield {"type": "log", "agent": "GEMINI", "message": f"✓ Analysis complete · confidence={conf*100:.0f}%"}
-                                    
-                                    # Trigger conditional HITL based on severity and confidence
-                                    severity = case_data.get("raw_case", {}).get("severity", "HIGH").upper()
-                                    if severity in ["LOW", "MEDIUM"] and conf >= 0.85:
-                                        msg = f"Auto-remediating {severity} severity case (Confidence: {conf*100:.0f}%)"
-                                        yield {"type": "log", "agent": "ORCHESTRATOR", "message": msg}
-                                        yield {"type": "hitl", "state": "auto_approved"}
-                                        hit_hitl = True
-                                        return
-                                    else:
-                                        msg = f"Recommendation ready — awaiting HITL approval ({severity} severity, {conf*100:.0f}% confidence)"
-                                        yield {"type": "log", "agent": "ORCHESTRATOR", "message": msg}
-                                        yield {"type": "hitl", "state": "awaiting"}
-                                        hit_hitl = True
-                                        return
-                                
-                            # Fallback if it hits HITL keyword without proper JSON parsed
-                            if "AWAITING_HITL_APPROVAL" in part.text:
-                                yield {"type": "log", "agent": "ORCHESTRATOR", "message": "Recommendation ready — awaiting HITL approval"}
-                                yield {"type": "hitl", "state": "awaiting"}
-                                hit_hitl = True
-                                return
-                                
-                            # Log intermediate thoughts if it's not JSON
-                            if not extracted_json and "AWAITING" not in part.text:
-                                msg = part.text.strip()
-                                if msg: yield {"type": "log", "agent": "ORCHESTRATOR", "message": msg}
+                                from google.protobuf.json_format import MessageToDict
+                                resp = MessageToDict(part.function_response.response._pb) if hasattr(part.function_response.response, "_pb") else dict(part.function_response.response)
+                            except Exception:
+                                resp = dict(part.function_response.response) if hasattr(part.function_response.response, "items") else part.function_response.response
+                            
+                            def unwrap_value(r, prefer_list=False):
+                                if not isinstance(r, dict): 
+                                    return [r] if prefer_list and not isinstance(r, list) else r
+                                for k in ["result", "value", "list", "items", "alerts", "assets", "logs", name]:
+                                    if k in r: 
+                                        val = r[k]
+                                        return [val] if prefer_list and not isinstance(val, list) else val
+                                if len(r) == 1: 
+                                    val = list(r.values())[0]
+                                    return [val] if prefer_list and not isinstance(val, list) else val
+                                return [r] if prefer_list else r
 
-                        if "transfer" not in part.text.lower():
-                            pass
+                            if name == "get_case": case_data["raw_case"] = resp
+                            elif name == "list_alerts": case_data["alerts"] = unwrap_value(resp, True)
+                            elif name == "get_raw_logs": case_data["logs"] = unwrap_value(resp, False)
+                            elif name == "get_affected_assets": case_data["assets"] = unwrap_value(resp, True)
+                            elif name == "query_playbook_corpus": 
+                                lst = unwrap_value(resp, True)
+                                if isinstance(lst, list): rag_results.extend(lst)
+                            elif name == "enrich_ip": ioc_data["ips"].append(resp)
+                            elif name == "enrich_hash": ioc_data["hashes"].append(resp)
+                            elif name == "enrich_domain": ioc_data["domains"].append(resp)
+                            elif name == "bulk_enrich_iocs":
+                                bulk = resp.get("bulk_enrich_iocs", resp)
+                                if "ips" in bulk: ioc_data["ips"].extend(bulk["ips"])
+                                if "hashes" in bulk: ioc_data["hashes"].extend(bulk["hashes"])
+                                if "domains" in bulk: ioc_data["domains"].extend(bulk["domains"])
+                            
+                            if name in ["get_affected_assets"]:
+                                yield {"type": "state", "key": "case_data", "data": case_data}
+                                yield {"type": "log", "agent": "CASE-RETRIEVAL", "message": f"✓ Fetched {len(case_data.get('alerts',[]))} alerts and {len(case_data.get('assets',[]))} assets."}
+                            elif name == "query_playbook_corpus":
+                                yield {"type": "state", "key": "rag_results", "data": rag_results}
+                                top = rag_results[0] if rag_results else {}
+                                yield {"type": "log", "agent": "RAG-PLAYBOOK", "message": f"✓ Top match: {top.get('playbook_id')} score={top.get('relevance_score')}"}
+                            elif name in ["enrich_ip", "enrich_hash", "enrich_domain", "bulk_enrich_iocs"]:
+                                yield {"type": "state", "key": "ioc_data", "data": ioc_data}
+                                yield {"type": "log", "agent": "THREAT-INTEL", "message": f"✓ Enriched IoC(s) successfully."}
+
+                        # Agent textual responses
+                        elif part.text:
+                            # Check if this is the structured schema output from SOCOrchestrator
+                            if author == "SOCORCHESTRATOR":
+                                extracted_json = None
+                                try:
+                                    extracted_json = json.loads(part.text)
+                                except json.JSONDecodeError:
+                                    import re
+                                    match = re.search(r'\{.*\}', part.text, re.DOTALL)
+                                    if match:
+                                        try:
+                                            extracted_json = json.loads(match.group())
+                                        except Exception:
+                                            pass
+                                            
+                                if extracted_json and "recommended_playbook_id" in extracted_json:
+                                    # Also check if it's the actual outer JSON
+                                    if "case_summary" in extracted_json:
+                                        yield {"type": "state", "key": "analysis", "data": extracted_json}
+                                        conf = extracted_json.get("confidence_score", 0)
+                                        yield {"type": "step", "step": 6}
+                                        yield {"type": "log", "agent": "GEMINI", "message": f"✓ Analysis complete · confidence={conf*100:.0f}%"}
+                                        
+                                        # Trigger conditional HITL based on severity and confidence
+                                        severity = case_data.get("raw_case", {}).get("severity", "HIGH").upper()
+                                        if severity in ["LOW", "MEDIUM"] and conf >= 0.85:
+                                            msg = f"Auto-remediating {severity} severity case (Confidence: {conf*100:.0f}%)"
+                                            yield {"type": "log", "agent": "ORCHESTRATOR", "message": msg}
+                                            yield {"type": "hitl", "state": "auto_approved"}
+                                            hit_hitl = True
+                                            return
+                                        else:
+                                            msg = f"Recommendation ready — awaiting HITL approval ({severity} severity, {conf*100:.0f}% confidence)"
+                                            yield {"type": "log", "agent": "ORCHESTRATOR", "message": msg}
+                                            yield {"type": "hitl", "state": "awaiting"}
+                                            hit_hitl = True
+                                            return
+                                    
+                                # Fallback if it hits HITL keyword without proper JSON parsed
+                                if "AWAITING_HITL_APPROVAL" in part.text:
+                                    yield {"type": "log", "agent": "ORCHESTRATOR", "message": "Recommendation ready — awaiting HITL approval"}
+                                    yield {"type": "hitl", "state": "awaiting"}
+                                    hit_hitl = True
+                                    return
+                                    
+                                # Log intermediate thoughts if it's not JSON
+                                if not extracted_json and "AWAITING" not in part.text:
+                                    msg = part.text.strip()
+                                    if msg: yield {"type": "log", "agent": "ORCHESTRATOR", "message": msg}
+
+                            if "transfer" not in part.text.lower():
+                                pass
+
+        except Exception as e:
+            err_msg = str(e)
+            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                backoff = 4 * (attempt + 1)
+                yield {"type": "log", "agent": "SYSTEM", "message": f"⚠️ Vertex AI Rate Limit (429). Backing off for {backoff}s..."}
+                await asyncio.sleep(backoff)
+                continue
+            else:
+                yield {"type": "log", "agent": "SYSTEM", "message": f"⚠️ Pipeline Error: {err_msg[:100]}..."}
+                break
 
         if hit_hitl:
             break
-            
-        yield {"type": "log", "agent": "SYSTEM", "message": f"Pipeline auto-resuming (Attempt {attempt+2}/5)..."}
-        query = "Please continue where you left off. You MUST complete ALL 4 steps of the PIPELINE SEQUENCE and output the final CaseAnalysis JSON with 'AWAITING_HITL_APPROVAL'."
+        
+        # Smarter auto-resume with context of what's already done
+        completed = []
+        if case_data.get("raw_case"): completed.append("Case Retrieval")
+        if rag_results: completed.append("Playbook RAG")
+        if ioc_data.get("ips") or ioc_data.get("hashes"): completed.append("Threat Intel Enrichment")
+        
+        status_msg = f"Completed so far: {', '.join(completed)}." if completed else "Starting pipeline."
+        yield {"type": "log", "agent": "SYSTEM", "message": f"Pipeline resuming (Attempt {attempt+2}/5). {status_msg}"}
+        
+        query = f"""{status_msg}
+Please continue the SOC analysis. You MUST:
+1. Complete any missing specialist steps (Case Retrieval -> Playbook RAG -> Threat Intel).
+2. If all data is gathered, perform Step 5 (Logic Reasoning) and Step 6 (Output CaseAnalysis JSON).
+3. Always end with 'AWAITING_HITL_APPROVAL'."""
+        
+        # Small delay to keep RPM low
+        await asyncio.sleep(2)
 
 
 async def resume_adk_pipeline(session_id: str, analyst_name: str, decision: str, analysis: dict, case_id: str, override_playbook: str | None = None, feedback: str | None = None):

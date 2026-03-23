@@ -123,3 +123,20 @@ def enrich_domain(domain: str) -> dict:
         "verdict": "Unknown",
         "threat_intel_source": "GTI (no match)",
     }
+def bulk_enrich_iocs(ips: list[str] = [], hashes: list[str] = [], domains: list[str] = []) -> dict:
+    """Enrich a list of multiple indicators (IPs, hashes, domains) in a single call.
+
+    Args:
+        ips: List of IPv4 addresses
+        hashes: List of file hashes (MD5/SHA256)
+        domains: List of domain names
+
+    Returns:
+        A dictionary containing lists of enrichment results for each type.
+    """
+    results = {
+        "ips": [enrich_ip(ip) for ip in ips],
+        "hashes": [enrich_hash(h) for h in hashes],
+        "domains": [enrich_domain(d) for d in domains],
+    }
+    return results

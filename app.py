@@ -12,6 +12,8 @@ import sys
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv(override=True)
 
 import streamlit as st
 
@@ -30,77 +32,106 @@ st.markdown("""
 
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
-/* Dark theme overrides */
-.stApp { background: #0a0e1a; color: #e2e8f0; }
-.stSidebar { background: #0d1220 !important; border-right: 1px solid #1e2a3a; }
-.stSidebar .stMarkdown { color: #94a3b8; }
+/* Light theme overrides + reduced padding to fit on screen */
+.block-container {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+    max-width: 98% !important;
+}
+.stApp { background: #f8fafc; color: #0f172a; }
+.stSidebar { background: #ffffff !important; border-right: 1px solid #e2e8f0; }
+.stSidebar .stMarkdown { color: #475569; }
 
 /* Cards */
 .sentinel-card {
-    background: linear-gradient(135deg, #111827 0%, #0f172a 100%);
-    border: 1px solid #1e3a5f;
-    border-radius: 12px;
-    padding: 20px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
     margin: 8px 0;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 .sentinel-card-header {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 1.5px;
-    color: #4a9eff;
+    color: #2563eb;
     text-transform: uppercase;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
 }
 
 /* Severity badges */
-.badge-critical { background:#7f1d1d; color:#fca5a5; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; letter-spacing:0.5px; }
-.badge-high     { background:#7c2d12; color:#fdba74; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
-.badge-medium   { background:#713f12; color:#fde68a; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
-.badge-low      { background:#14532d; color:#86efac; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+.badge-critical { background:#fef2f2; color:#b91c1c; border:1px solid #f87171; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; }
+.badge-high     { background:#fff7ed; color:#c2410c; border:1px solid #fb923c; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; }
+.badge-medium   { background:#fefce8; color:#a16207; border:1px solid #facc15; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; }
+.badge-low      { background:#f0fdf4; color:#15803d; border:1px solid #4ade80; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; }
 
 /* Agent message colours */
-.msg-orchestrator { border-left: 3px solid #2E5FA3; background:#0a1628; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
-.msg-case-retrieval{ border-left: 3px solid #0F6E56; background:#051a14; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
-.msg-rag-playbook  { border-left: 3px solid #534AB7; background:#0d0b28; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
-.msg-threat-intel  { border-left: 3px solid #B45309; background:#1a0f00; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
-.msg-action-exec   { border-left: 3px solid #16A34A; background:#051a0a; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
-.msg-gemini        { border-left: 3px solid #D97706; background:#1a1200; padding:6px 12px; border-radius:4px; margin:3px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-orchestrator { border-left: 3px solid #0284c7; background:#f0f9ff; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-case-retrieval{ border-left: 3px solid #16a34a; background:#f0fdf4; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-rag-playbook  { border-left: 3px solid #4f46e5; background:#e0e7ff; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-threat-intel  { border-left: 3px solid #ea580c; background:#ffedd5; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-action-exec   { border-left: 3px solid #16a34a; background:#f0fdf4; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-gemini        { border-left: 3px solid #d97706; background:#fef3c7; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
 
 /* MITRE badges */
-.mitre-badge { display:inline-block; background:#1e1b4b; color:#a5b4fc; border:1px solid #3730a3; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600; margin:2px; font-family:'JetBrains Mono',monospace; }
+.mitre-badge { display:inline-block; background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600; margin:2px; font-family:'JetBrains Mono',monospace; }
 
 /* Confidence bar */
-.conf-bar-container { background:#1e2a3a; border-radius:8px; height:12px; width:100%; margin:6px 0; }
-.conf-bar-fill-green  { background:linear-gradient(90deg,#15803d,#22c55e); height:12px; border-radius:8px; transition:width 0.5s ease; }
-.conf-bar-fill-amber  { background:linear-gradient(90deg,#b45309,#f59e0b); height:12px; border-radius:8px; }
-.conf-bar-fill-red    { background:linear-gradient(90deg,#991b1b,#ef4444); height:12px; border-radius:8px; }
-
-/* HITL panel */
-.hitl-panel { background:linear-gradient(135deg,#0f1f3d,#0a1628); border:2px solid #2563eb; border-radius:12px; padding:24px; text-align:center; }
-.hitl-title { font-size:18px; font-weight:700; color:#60a5fa; margin-bottom:8px; }
-.hitl-subtitle { font-size:13px; color:#94a3b8; margin-bottom:20px; }
-
-/* Action log */
-.action-line-success { color:#22c55e; font-family:'JetBrains Mono',monospace; font-size:12px; padding:3px 0; }
-.action-line-queued  { color:#f59e0b; font-family:'JetBrains Mono',monospace; font-size:12px; padding:3px 0; }
-.action-line-running { color:#60a5fa; font-family:'JetBrains Mono',monospace; font-size:12px; padding:3px 0; }
-
-/* SNOW card */
-.snow-card { background:linear-gradient(135deg,#0a1f0a,#051505); border:1px solid #16a34a; border-radius:12px; padding:20px; }
-.snow-resolved { color:#22c55e; font-size:22px; font-weight:800; }
-.snow-field { color:#94a3b8; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; }
-.snow-value { color:#e2e8f0; font-size:13px; font-weight:500; margin-bottom:8px; }
-
-/* Reputation score pill */
-.rep-danger { color:#ef4444; font-weight:700; }
-.rep-warn   { color:#f59e0b; font-weight:700; }
-.rep-clean  { color:#22c55e; font-weight:700; }
+/* Confidence bar */
+.conf-bar-container { background:#1e293b; border-radius:6px; height:12px; width:100%; margin:8px 0; overflow:hidden; border:1px solid #334155; }
+.conf-bar-fill { height:100%; border-radius:6px; transition:width 1s cubic-bezier(0.4, 0, 0.2, 1); background:linear-gradient(90deg, #3b82f6, #60a5fa); box-shadow: 0 0 10px rgba(96, 165, 250, 0.3); }
 
 /* Step progress */
-.step-done    { color:#22c55e; }
-.step-running { color:#60a5fa; }
-.step-pending { color:#374151; }
+.step-done    { color:#10b981; font-weight:600; }
+.step-running { color:#3b82f6; font-weight:700; animation: pulse 2s infinite; }
+.step-pending { color:#475569; }
+
+/* Animations */
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.05); } 100% { opacity: 1; transform: scale(1); } }
+.spinning { display: inline-block; animation: spin 2s linear infinite; }
+
+/* Metrics Ribbon */
+.metrics-container { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 24px; }
+.metric-card { flex: 1; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.metric-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; font-weight: 600; }
+.metric-value { font-size: 20px; font-weight: 800; color: #0f172a; }
+.metric-delta { font-size: 10px; color: #10b981; margin-top: 2px; font-weight: 500; }
+
+/* Dashboard Components */
+.sentinel-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.sentinel-card-header { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; color: #2563eb; text-transform: uppercase; margin-bottom: 6px; }
+
+.badge-critical { background:#fef2f2; color:#b91c1c; border:1px solid #f87171; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; }
+.badge-high     { background:#fff7ed; color:#c2410c; border:1px solid #fb923c; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; }
+.badge-medium   { background:#fefce8; color:#a16207; border:1px solid #facc15; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; }
+.badge-low      { background:#f0fdf4; color:#15803d; border:1px solid #4ade80; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; }
+
+.hitl-panel { background:#ffffff; border:2px solid #3b82f6; border-radius:8px; padding:16px; text-align:center; box-shadow: 0 4px 12px rgba(59,130,246,0.15); }
+.hitl-title { font-size:16px; font-weight:700; color:#1d4ed8; margin-bottom:6px; }
+.hitl-subtitle { font-size:12px; color:#64748b; margin-bottom:12px; }
+
+.snow-card { background:#f0fdf4; border:1px solid #22c55e; border-radius:8px; padding:16px; }
+.snow-resolved { color:#16a34a; font-size:18px; font-weight:800; }
+.snow-field { color:#64748b; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; }
+.snow-value { color:#0f172a; font-size:12px; font-weight:500; margin-bottom:6px; }
+
+.msg-orchestrator { border-left: 3px solid #0284c7; background:#f0f9ff; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-case-retrieval{ border-left: 3px solid #16a34a; background:#f0fdf4; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-rag-playbook  { border-left: 3px solid #4f46e5; background:#e0e7ff; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-threat-intel  { border-left: 3px solid #ea580c; background:#ffedd5; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-action-exec   { border-left: 3px solid #16a34a; background:#f0fdf4; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+.msg-gemini        { border-left: 3px solid #d97706; background:#fef3c7; padding:4px 10px; border-radius:4px; margin:2px 0; font-size:12px; font-family:'JetBrains Mono',monospace; }
+
+.action-line-success { color:#15803d; font-family:'JetBrains Mono',monospace; font-size:11px; padding:2px 0; }
+.action-line-queued  { color:#b45309; font-family:'JetBrains Mono',monospace; font-size:11px; padding:2px 0; }
+.action-line-running { color:#1d4ed8; font-family:'JetBrains Mono',monospace; font-size:11px; padding:2px 0; }
+
+.rep-danger { color:#dc2626; font-weight:700; background:#fee2e2; padding:1px 4px; border-radius:4px; }
+.rep-warn   { color:#d97706; font-weight:700; background:#fef3c7; padding:1px 4px; border-radius:4px; }
+.rep-clean  { color:#16a34a; font-weight:700; background:#dcfce7; padding:1px 4px; border-radius:4px; }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -174,14 +205,19 @@ def _rep_color(score: int) -> str:
     return "rep-clean"
 
 def _conf_bar(score: float) -> str:
-    pct = int(score * 100)
-    cls = "conf-bar-fill-green" if pct >= 80 else ("conf-bar-fill-amber" if pct >= 60 else "conf-bar-fill-red")
+    # Ensure score is between 0 and 1
+    s = max(0, min(1, float(score)))
+    pct = int(s * 100)
+    color = "#10b981" if pct >= 80 else ("#f59e0b" if pct >= 60 else "#ef4444")
     return f"""
-    <div style="display:flex;align-items:center;gap:10px;">
-      <div class="conf-bar-container" style="flex:1">
-        <div class="{cls}" style="width:{pct}%"></div>
+    <div style="margin-top:8px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="color:#94a3b8;font-weight:600">AI Confidence</span>
+        <span style="color:{color};font-weight:700">{pct}%</span>
       </div>
-      <span style="font-size:18px;font-weight:700;color:{'#22c55e' if pct>=80 else ('#f59e0b' if pct>=60 else '#ef4444')}">{pct}%</span>
+      <div class="conf-bar-container">
+        <div class="conf-bar-fill" style="width:{pct}%"></div>
+      </div>
     </div>"""
 
 # ── Session state initialisation ───────────────────────────────────────────────
@@ -249,22 +285,7 @@ with st.sidebar:
     case_id = st.session_state["selected_case"]
     meta = CASES[case_id]
 
-    st.markdown(f"""
-    <div class="sentinel-card" style="margin-top:8px">
-      <div class="sentinel-card-header">Case Details</div>
-      <div style="margin-bottom:6px">{_severity_badge(meta['severity'])}</div>
-      <div style="font-size:12px;color:#e2e8f0;margin-bottom:6px">{meta['desc']}</div>
-      <div style="font-size:11px;color:#64748b">🕐 {meta['ts'][:16].replace('T',' ')} UTC</div>
-      <div style="font-size:11px;color:#64748b">🔔 {meta['alerts']} alerts correlated</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("### Analyst")
-    st.session_state["analyst_name"] = st.text_input(
-        "Analyst ID", value=st.session_state["analyst_name"], label_visibility="collapsed"
-    )
-
-    st.divider()
+    st.markdown("### 🎛️ Operations")
     run_btn = st.button(
         "▶ Run Analysis" if st.session_state["pipeline_step"] == 0 else "🔄 Reset & Re-run",
         type="primary", use_container_width=True,
@@ -278,9 +299,47 @@ with st.sidebar:
         st.session_state["running"] = True
         st.rerun()
 
+    st.markdown("### Analyst")
+    st.session_state["analyst_name"] = st.text_input(
+        "Analyst ID", value=st.session_state["analyst_name"], label_visibility="collapsed"
+    )
+
+    st.divider()
+
+    st.markdown(f"""
+    <div class="sentinel-card" style="margin-top:8px">
+      <div class="sentinel-card-header">Case Details</div>
+      <div style="margin-bottom:6px">{_severity_badge(meta['severity'])}</div>
+      <div style="font-size:12px;color:#0f172a;margin-bottom:6px">{meta['desc']}</div>
+      <div style="font-size:11px;color:#64748b">🕐 {meta['ts'][:16].replace('T',' ')} UTC</div>
+      <div style="font-size:11px;color:#64748b">🔔 {meta['alerts']} alerts correlated</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 # ── Main area top: progress bar ────────────────────────────────────────────────
 st.markdown("# 🛡️ Project Sentinel")
 st.markdown(f'<p style="color:#64748b;margin-top:-14px">Agentic AIOps · Security Operations Centre · {case_id}</p>', unsafe_allow_html=True)
+
+# Metrics Ribbon
+st.markdown(f"""
+<div class="metrics-container">
+  <div class="metric-card">
+    <div class="metric-label">Avg. Containment</div>
+    <div class="metric-value">2m 14s</div>
+    <div class="metric-delta">↑ 12% vs last week</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Active Criticals</div>
+    <div class="metric-value">03</div>
+    <div class="metric-delta" style="color:#ef4444">High Alert</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Auto-Remediation</div>
+    <div class="metric-value">84%</div>
+    <div class="metric-delta">Target: 90%</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 step = st.session_state.get("pipeline_step", 0)
 
@@ -290,7 +349,7 @@ for i, (col, name) in enumerate(zip(cols, PIPELINE_STEPS)):
     if step > step_num:
         icon, cls = "✓", "step-done"
     elif step == step_num:
-        icon, cls = "⟳", "step-running"
+        icon, cls = '<span class="spinning">⟳</span>', "step-running"
     else:
         icon, cls = "○", "step-pending"
     col.markdown(f'<div style="text-align:center"><span class="{cls}" style="font-size:18px">{icon}</span><br><span style="font-size:9px;color:#64748b">{step_num}. {name}</span></div>', unsafe_allow_html=True)
@@ -323,78 +382,45 @@ with main_col:
     # ── Run pipeline if triggered ──────────────────────────────────────────────
     if st.session_state.get("running") and st.session_state["pipeline_step"] == 0:
         try:
+            import asyncio
+            import sys
             sys.path.insert(0, str(Path(__file__).parent))
-            from runner import (step_retrieve_case, step_query_rag, step_enrich_iocs,
-                                step_call_gemini, step_execute_actions, step_close_case)
+            from runner import run_adk_pipeline
+            
+            # Generate a fresh ADK session ID
+            session_id = f"session-{case_id}-{int(time.time())}"
+            st.session_state["adk_session_id"] = session_id
 
-            # ── Step 1 ─────────────────────────────────────────────────────────
-            st.session_state["pipeline_step"] = 1
-            _log("ORCHESTRATOR", f"Pipeline initiated for {case_id}")
-            _audit("Sentinel Orchestrator (AI)", f"Pipeline started for {case_id}", "Initiated")
-            time.sleep(0.3)
+            async def run_pipeline_to_hitl():
+                with st.status("🤖 Running ADK Pipeline...", expanded=True) as status:
+                    _audit("Sentinel Orchestrator (AI)", f"Pipeline started for {case_id}", "Initiated")
+                    async for event in run_adk_pipeline(case_id, session_id, st.session_state["analyst_name"]):
+                        if event["type"] == "step":
+                            st.session_state["pipeline_step"] = event["step"]
+                            if event["step"] == 2: status.update(label="🔍 Fetching case data...", state="running")
+                            elif event["step"] == 3: status.update(label="📚 Querying RAG Playbooks...", state="running")
+                            elif event["step"] == 4: status.update(label="🔬 Enriching Threat Intel...", state="running")
+                            elif event["step"] == 5: status.update(label="🧠 Gemini Analysing Case...", state="running")
+                            elif event["step"] == 6: status.update(label="✅ Recommendation Ready", state="complete")
+                        elif event["type"] == "log":
+                            _log(event["agent"], event["message"])
+                            st.write(f"**{event['agent']}**: {event['message']}")
+                        elif event["type"] == "state":
+                            st.session_state[event["key"]] = event["data"]
+                        elif event["type"] == "hitl":
+                            st.session_state["hitl_state"] = event["state"]
+                            st.session_state["pipeline_step"] = 7
+                            _audit("Sentinel Orchestrator (AI)", "Pipeline paused for HITL approval", "AWAITING_ANALYST")
+                            break
 
-            # ── Step 2: Retrieve ───────────────────────────────────────────────
-            st.session_state["pipeline_step"] = 2
-            _log("CASE-RETRIEVAL", f"→ secops-mcp: get_case({case_id})")
-            with st.spinner("🔍 Case Retrieval Agent fetching data from SecOps..."):
-                case_data = step_retrieve_case(case_id)
-            st.session_state["case_data"] = case_data
-            _log("CASE-RETRIEVAL", f"✓ {len(case_data['alerts'])} alerts · {len(case_data['assets'])} assets · {len(case_data['raw_case']['iocs'].get('ips',[]))} IPs")
-            _audit("Case Retrieval Agent", f"Fetched case data for {case_id}", f"{len(case_data['alerts'])} alerts retrieved")
-            time.sleep(0.3)
-
-            # ── Step 3: RAG ────────────────────────────────────────────────────
-            st.session_state["pipeline_step"] = 3
-            raw_case = case_data["raw_case"]
-            case_desc = raw_case.get("description", "")
-            threat_ctx = f"{raw_case.get('title','')} {case_desc}"
-            _log("RAG-PLAYBOOK", f"→ vertex-rag: query_playbook_corpus('{threat_ctx[:50]}...')")
-            with st.spinner("📚 RAG Playbook Agent querying playbook corpus..."):
-                rag_results = step_query_rag(case_id, threat_ctx)
-            st.session_state["rag_results"] = rag_results
-            top = rag_results[0] if rag_results else {}
-            _log("RAG-PLAYBOOK", f"✓ Top match: {top.get('playbook_id')} score={top.get('relevance_score')}")
-            _audit("RAG Playbook Agent", "Queried playbook corpus", f"Top match: {top.get('playbook_id')} ({top.get('relevance_score')*100:.0f}%)")
-            time.sleep(0.3)
-
-            # ── Step 4: Intel ──────────────────────────────────────────────────
-            st.session_state["pipeline_step"] = 4
-            iocs = raw_case.get("iocs", {})
-            total_iocs = len(iocs.get("ips",[])) + len(iocs.get("hashes",[])) + len(iocs.get("domains",[]))
-            _log("THREAT-INTEL", f"→ gti-mcp: enriching {total_iocs} IoCs")
-            with st.spinner("🔬 Threat Intel Agent enriching IoCs..."):
-                ioc_data = step_enrich_iocs(case_id)
-            st.session_state["ioc_data"] = ioc_data
-            malicious = sum(1 for ip in ioc_data.get("ips",[]) if ip.get("reputation_score",0) >= 70)
-            _log("THREAT-INTEL", f"✓ {total_iocs} IoCs enriched · {malicious} malicious confirmed")
-            _audit("Threat Intel Agent", f"Enriched {total_iocs} IoCs via GTI/VT", f"{malicious} malicious")
-            time.sleep(0.3)
-
-            # ── Step 5: Gemini ─────────────────────────────────────────────────
-            st.session_state["pipeline_step"] = 5
-            _log("GEMINI", f"→ gemini-2.5-flash: analyse_case({case_id})")
-            _log("ORCHESTRATOR", "Consolidating case context · playbook match · IoC enrichments → Gemini")
-            with st.spinner("🧠 Gemini 2.5 Flash reasoning over case context..."):
-                analysis = step_call_gemini(case_id, case_data, rag_results, ioc_data)
-            st.session_state["analysis"] = analysis
-            conf = analysis.get("confidence_score", 0)
-            _log("GEMINI", f"✓ Analysis complete · confidence={conf*100:.0f}% · {len(analysis.get('mitre_techniques',[]))} MITRE techniques")
-            _audit("Gemini 2.5 Flash (via Orchestrator)", "Case analysis complete", f"Confidence: {conf*100:.0f}%")
-
-            # ── Step 6 → marks recommendation ready ───────────────────────────
-            st.session_state["pipeline_step"] = 6
-            _log("ORCHESTRATOR", f"Recommendation: {analysis.get('recommended_playbook_id')} — awaiting HITL approval")
-            time.sleep(0.3)
-
-            # ── Step 7: HITL ───────────────────────────────────────────────────
-            st.session_state["pipeline_step"] = 7
-            st.session_state["hitl_state"] = "awaiting"
+            asyncio.run(run_pipeline_to_hitl())
             st.session_state["running"] = False
-            _audit("Sentinel Orchestrator (AI)", "Pipeline paused for HITL approval", "AWAITING_ANALYST")
             st.rerun()
 
         except Exception as e:
             st.session_state["error"] = str(e)
+            import traceback
+            traceback.print_exc()
             st.session_state["running"] = False
             _log("ORCHESTRATOR", f"❌ ERROR: {e}")
 
@@ -502,19 +528,21 @@ with main_col:
               <div style="margin-bottom:8px">{_severity_badge(sev)}</div>
               <p style="color:#94a3b8;font-size:13px;line-height:1.6">{analysis.get('case_summary','')}</p>
             </div>
-            <div style="flex:1;min-width:160px">
-              <div class="sentinel-card-header">Confidence</div>
+            <div style="flex:1;min-width:160px;background:#0f172a;padding:16px;border-radius:12px;border:1px solid #1e293b">
               {_conf_bar(conf)}
-              <div style="margin-top:16px">
-                <div class="sentinel-card-header">Blast Radius</div>
-                <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_endpoints',0)}</div>
-                <div style="font-size:11px;color:#64748b">endpoints</div>
-                <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_users',0)}</div>
-                <div style="font-size:11px;color:#64748b">user accounts</div>
+              <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div>
+                  <div class="sentinel-card-header" style="margin-bottom:2px">Endpoints</div>
+                  <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_endpoints',0)}</div>
+                </div>
+                <div>
+                  <div class="sentinel-card-header" style="margin-bottom:2px">Users</div>
+                  <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_users',0)}</div>
+                </div>
               </div>
             </div>
           </div>
-          <div style="margin-top:16px">
+          <div style="margin-top:20px">
             <div class="sentinel-card-header">MITRE ATT&CK Techniques</div>
             {mitre_html if mitre_html else '<span style="color:#64748b;font-size:12px">None identified</span>'}
           </div>
@@ -534,9 +562,22 @@ with main_col:
         """, unsafe_allow_html=True)
 
     # ── Step 7: HITL Panel ─────────────────────────────────────────────────────
-    if st.session_state["pipeline_step"] >= 7 and st.session_state["hitl_state"] != "none":
+    if st.session_state["pipeline_step"] >= 6 and st.session_state["hitl_state"] != "none":
         hitl = st.session_state["hitl_state"]
         analysis = st.session_state.get("analysis", {})
+
+        if hitl == "auto_approved":
+            st.session_state["hitl_state"] = "approved"
+            st.session_state["hitl_decision"] = "Auto-Approved"
+            _log("ORCHESTRATOR", f"HITL: Auto-Approved by System (High Confidence, Low Severity)")
+            _audit(st.session_state["analyst_name"], f"HITL: Auto-Approved {analysis.get('recommended_playbook_id')}", "Auto-Approved")
+            from sentinel.tools.snow_mcp import add_worknote
+            raw = st.session_state["case_data"]["raw_case"]
+            snow_ref = raw.get("snow_incident_ref", "INC0000000")
+            add_worknote(snow_ref, f"HITL DECISION: Auto-approved by system rules at {datetime.now(timezone.utc).isoformat()}", author="SYSTEM")
+            st.session_state["pipeline_step"] = 8
+            st.session_state["running"] = True
+            st.rerun()
 
         if hitl == "awaiting":
             st.markdown("---")
@@ -592,19 +633,9 @@ with main_col:
                     raw = st.session_state["case_data"]["raw_case"]
                     snow_ref = raw.get("snow_incident_ref","INC0000000")
                     add_worknote(snow_ref, f"HITL OVERRIDE by {st.session_state['analyst_name']}: {selected_pb} selected. Reason: {override_reason or 'None given'}", author=st.session_state["analyst_name"])
-                    # Re-run Gemini with override
+                    
                     st.session_state["override_playbook"] = selected_pb
-                    with st.spinner(f"🧠 Re-evaluating with {selected_pb}..."):
-                        from runner import step_call_gemini
-                        new_analysis = step_call_gemini(
-                            case_id, st.session_state["case_data"],
-                            st.session_state["rag_results"], st.session_state["ioc_data"],
-                            override_playbook=selected_pb,
-                        )
-                    st.session_state["analysis"] = new_analysis
-                    _log("GEMINI", f"✓ Re-analysis complete with {selected_pb} · confidence={new_analysis.get('confidence_score',0)*100:.0f}%")
-                    st.session_state["hitl_state"] = "approved"
-                    st.session_state["hitl_decision"] = f"Overridden → {selected_pb}"
+                    st.session_state["hitl_decision"] = "override"
                     st.session_state["pipeline_step"] = 8
                     st.session_state["running"] = True
                     st.rerun()
@@ -632,18 +663,11 @@ with main_col:
                     raw = st.session_state["case_data"]["raw_case"]
                     snow_ref = raw.get("snow_incident_ref","INC0000000")
                     add_worknote(snow_ref, f"HITL REJECT by {st.session_state['analyst_name']}: {feedback}", author=st.session_state["analyst_name"])
+                    
                     st.session_state["analyst_feedback"] = feedback
-                    with st.spinner("🧠 Gemini re-analysing with analyst feedback..."):
-                        from runner import step_call_gemini
-                        new_analysis = step_call_gemini(
-                            case_id, st.session_state["case_data"],
-                            st.session_state["rag_results"], st.session_state["ioc_data"],
-                            analyst_feedback=feedback,
-                        )
-                    st.session_state["analysis"] = new_analysis
-                    _log("GEMINI", f"✓ Revised analysis complete · new confidence={new_analysis.get('confidence_score',0)*100:.0f}%")
-                    _audit("Gemini 2.5 Flash", "Re-analysis complete with analyst feedback", f"confidence={new_analysis.get('confidence_score',0)*100:.0f}%")
-                    st.session_state["hitl_state"] = "awaiting"
+                    st.session_state["hitl_decision"] = "reject"
+                    st.session_state["pipeline_step"] = 8
+                    st.session_state["running"] = True
                     st.rerun()
             with col2:
                 if st.button("← Back", use_container_width=True):
@@ -654,33 +678,42 @@ with main_col:
     # ── Step 8: Action Execution ───────────────────────────────────────────────
     if st.session_state.get("running") and st.session_state["pipeline_step"] == 8:
         try:
-            from runner import step_execute_actions
+            import asyncio
+            from runner import resume_adk_pipeline
+            
+            session_id = st.session_state.get("adk_session_id", f"session-{case_id}")
+            analyst = st.session_state["analyst_name"]
+            decision = st.session_state["hitl_decision"]
+            override = st.session_state.get("override_playbook")
+            feedback = st.session_state.get("analyst_feedback")
             analysis = st.session_state["analysis"]
-            _log("ACTION-EXEC", f"→ secops-mcp: trigger_playbook({analysis.get('recommended_playbook_id')}, {case_id})")
-            with st.spinner("⚙️ Action Executor agent executing SOAR playbook..."):
-                exec_result = step_execute_actions(case_id, analysis, st.session_state["analyst_name"])
-            st.session_state["execution"] = exec_result
-            steps = exec_result["execution"].get("action_steps", [])
-            _log("ACTION-EXEC", f"✓ {len(steps)} actions executed · execution_id={exec_result['execution'].get('execution_id','')[:20]}")
-            _audit("Action Executor Agent", f"Playbook {analysis.get('recommended_playbook_id')} executed", f"{len(steps)} steps")
 
-            # Step 9: Close
-            st.session_state["pipeline_step"] = 9
-            from runner import step_close_case
-            _log("ACTION-EXEC", f"→ snow-mcp: close_incident({exec_result['snow_ref']})")
-            with st.spinner("📋 Closing ServiceNow ticket and generating audit trail..."):
-                closure = step_close_case(case_id, analysis, exec_result,
-                                          analyst_name=st.session_state["analyst_name"],
-                                          hitl_decision=st.session_state.get("hitl_decision","Accepted"))
-            st.session_state["closure"] = closure
-            _log("ACTION-EXEC", f"✓ {closure['snow_ref']} closed · RESOLVED")
-            _audit("Sentinel Orchestrator (AI)", f"{closure['snow_ref']} closed", "RESOLVED")
-            st.session_state["pipeline_step"] = 10
+            async def run_resume_pipeline():
+                with st.status("⚙️ Resuming ADK Pipeline...", expanded=True) as status:
+                    async for event in resume_adk_pipeline(session_id, analyst, decision, analysis, case_id, override, feedback):
+                        if event["type"] == "log":
+                            _log(event["agent"], event["message"])
+                            st.write(f"**{event['agent']}**: {event['message']}")
+                        elif event["type"] == "state":
+                            st.session_state[event["key"]] = event["data"]
+                        elif event["type"] == "step":
+                            st.session_state["pipeline_step"] = event["step"]
+                        elif event["type"] == "hitl":
+                            st.session_state["hitl_state"] = event["state"]
+                            break
+                        elif event["type"] == "finish":
+                            st.session_state["pipeline_step"] = 10
+
+            asyncio.run(run_resume_pipeline())
             st.session_state["running"] = False
+            if st.session_state.get("pipeline_step") == 10:
+                _audit("Sentinel Orchestrator (AI)", "Pipeline complete", "RESOLVED")
             st.rerun()
 
         except Exception as e:
             st.session_state["error"] = str(e)
+            import traceback
+            traceback.print_exc()
             st.session_state["running"] = False
             _log("ORCHESTRATOR", f"❌ ERROR in action execution: {e}")
 

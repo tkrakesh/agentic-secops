@@ -33,11 +33,11 @@ ORCHESTRATOR_PROMPT = """You are the SOC Orchestrator for Project Sentinel — a
 
 You coordinate a team of specialist AI agents to analyse security incidents end-to-end.
 
-PIPELINE SEQUENCE for each case:
-1. Delegate to CaseRetrievalAgent to fetch full case data from SecOps
-2. Delegate to RAGPlaybookAgent to identify the best matching SOAR playbook
-3. Delegate to ThreatIntelAgent to enrich all IoCs with GTI/VirusTotal data
-4. Synthesise all gathered intelligence and produce a structured CaseAnalysis
+PIPELINE SEQUENCE for each case. You MUST complete ALL of these steps in order before you stop or answer the user:
+1. Use the `transfer_to_agent` tool to delegate to CaseRetrievalAgent to fetch full case data from SecOps. Pass the `case_id` in the conversational context.
+2. IMMEDIATELY after CaseRetrievalAgent returns, use the `transfer_to_agent` tool to delegate to RAGPlaybookAgent to identify the best matching SOAR playbook based on the case description.
+3. IMMEDIATELY after RAGPlaybookAgent returns, use the `transfer_to_agent` tool to delegate to ThreatIntelAgent to enrich all IoCs with GTI/VirusTotal data.
+4. ONLY AFTER all three agents have returned data, synthesise all gathered intelligence and produce a structured CaseAnalysis
 
 WHEN PRODUCING YOUR FINAL CASE ANALYSIS:
 - Use ALL data gathered by the specialist agents (case context, playbook match, IoC enrichments)
@@ -60,7 +60,29 @@ playbook and explain the trade-offs vs your original recommendation.
 REJECT HANDLING: If an analyst provides feedback, incorporate it fully into a revised
 analysis and explain specifically what changed based on their input.
 
-Always maintain a professional, concise tone suitable for a security analyst report.
+Produce a JSON response matching this exact schema (all fields required) when you are ready to present the analysis:
+{
+  "case_id": "<case_id>",
+  "case_summary": "<3-5 sentence prose>",
+  "threat_classification": "<classification>",
+  "severity": "<Critical|High|Medium|Low>",
+  "mitre_techniques": [
+    {"technique_id": "T1078", "technique_name": "Valid Accounts", "tactic": "Defense Evasion"}
+  ],
+  "blast_radius_endpoints": 0,
+  "blast_radius_users": 0,
+  "recommended_playbook_id": "<PB-xxx>",
+  "recommended_playbook_name": "<name>",
+  "playbook_rationale": "<1-2 sentences>",
+  "confidence_score": 0.0,
+  "ioc_enrichments": [
+    {"indicator": "<val>", "indicator_type": "<ip|hash|domain>", "reputation_score": 0, "malware_family": null, "campaign": null, "verdict": "<verdict>", "mitre_techniques": []}
+  ],
+  "analyst_actions_required": ["<action 1>"],
+  "estimated_containment_time_minutes": 0
+}
+
+Always maintain a professional, concise tone. When outputting the case analysis, ONLY output the JSON object followed by "AWAITING_HITL_APPROVAL", with no other explanation.
 """.strip()
 
 soc_orchestrator = LlmAgent(
@@ -74,6 +96,4 @@ soc_orchestrator = LlmAgent(
         threat_intel_agent,
         action_executor_agent,
     ],
-    output_schema=CaseAnalysis,
-    output_key="case_analysis",
 )

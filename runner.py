@@ -1,282 +1,284 @@
 """
 runner.py — ADK pipeline runner for Streamlit.
 
-Provides async functions that Streamlit calls to drive each stage of the
-9-step Sentinel pipeline. Manages ADK session state, handles streaming
-events, and formats agent messages for the UI log.
+Refactored to use native Google ADK Multi-Agent Orchestration.
+The Runner executes the SOCOrchestrator, and we intercept the ADK Event
+stream to populate the structured dictionaries the Streamlit UI expects.
 """
 
 from __future__ import annotations
 import json
 import os
-import time
+import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(override=True)
 
-from sentinel.tools.secops_mcp import get_case, list_alerts, get_raw_logs, get_affected_assets
-from sentinel.tools.rag_tool import query_playbook_corpus
-from sentinel.tools.gti_mcp import enrich_ip, enrich_hash, enrich_domain
-from sentinel.tools.snow_mcp import add_worknote, close_incident, get_incident_state
-from sentinel.tools.secops_mcp import trigger_playbook, update_case_status
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
+from sentinel.agents.orchestrator import soc_orchestrator
 
-# ── Gemini direct call (no ADK overhead for the main analysis) ─────────────────
-
-def _get_gemini_model():
-    """Return configured Gemini model string."""
-    return os.getenv("SENTINEL_MODEL", "gemini-2.5-flash")
+# Global session service to retain state across Streamlit UI re-runs
+_session_service = InMemorySessionService()
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def _load_case_data(case_id: str) -> dict:
-    """Load case JSON fixture directly."""
     data_dir = Path(__file__).parent / "sentinel" / "data" / "cases"
     fname = case_id.lower().replace("-", "_") + ".json"
+    if not (data_dir / fname).exists():
+        return {}
     with open(data_dir / fname, encoding="utf-8") as f:
         return json.load(f)
 
-# ── Step-by-step pipeline functions ───────────────────────────────────────────
-
-def step_retrieve_case(case_id: str) -> dict:
-    """Step 2: Retrieve case data via mock SecOps MCP."""
-    case = get_case(case_id)
-    alerts = list_alerts(case_id)
-    logs = get_raw_logs(case_id)
-    assets = get_affected_assets(case_id)
-    return {
-        "case": case,
-        "alerts": alerts,
-        "logs": logs,
-        "assets": assets,
-        "raw_case": _load_case_data(case_id),
-    }
-
-
-def step_query_rag(case_id: str, threat_context: str) -> list[dict]:
-    """Step 3: Query playbook corpus with threat context."""
-    results = query_playbook_corpus(threat_context, top_k=3)
-    return results
-
-
-def step_enrich_iocs(case_id: str) -> dict:
-    """Step 4: Enrich all IoCs for the case."""
-    raw = _load_case_data(case_id)
-    iocs = raw.get("iocs", {})
-    enriched = {"ips": [], "hashes": [], "domains": []}
-    for ip in iocs.get("ips", []):
-        enriched["ips"].append(enrich_ip(ip))
-    for h in iocs.get("hashes", []):
-        enriched["hashes"].append(enrich_hash(h))
-    for d in iocs.get("domains", []):
-        enriched["domains"].append(enrich_domain(d))
-    return enriched
-
-
-def step_call_gemini(case_id: str, case_data: dict, rag_results: list, ioc_data: dict,
-                     override_playbook: str | None = None,
-                     analyst_feedback: str | None = None) -> dict:
+async def run_adk_pipeline(case_id: str, session_id: str, analyst_name: str, yield_delay: float = 0.1):
     """
-    Step 5+6: Call Gemini to produce structured CaseAnalysis.
-    Returns the raw Gemini response as a dict (parsed from JSON).
+    Starts the ADK agentic pipeline.
+    Yields dicts describing UI updates based on the ADK event stream.
     """
-    import google.generativeai as genai
-
-    api_key = os.getenv("GOOGLE_API_KEY")
-    use_vertex = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "FALSE").upper() == "TRUE"
-
-    top_playbook = rag_results[0] if rag_results else {}
-    if override_playbook:
-        # Find the override in the results list or use top
-        override_match = next((r for r in rag_results if r["playbook_id"] == override_playbook), top_playbook)
-        selected_playbook = override_match
-        override_note = f"\n\nNOTE: The analyst has OVERRIDDEN the recommendation and selected {override_playbook}. Evaluate with this playbook and explain any trade-offs vs the original recommendation."
-    else:
-        selected_playbook = top_playbook
-        override_note = ""
-
-    feedback_note = ""
-    if analyst_feedback:
-        feedback_note = f"\n\nANALYST FEEDBACK FOR REVISION: {analyst_feedback}\nRevise your analysis incorporating this feedback specifically."
-
-    all_iocs_flat = []
-    for ip_data in ioc_data.get("ips", []):
-        all_iocs_flat.append({
-            "indicator": ip_data.get("ip", ""),
-            "indicator_type": "ip",
-            "reputation_score": ip_data.get("reputation_score", 0),
-            "malware_family": ip_data.get("malware_family"),
-            "campaign": ip_data.get("campaign"),
-            "verdict": ip_data.get("verdict", "Unknown"),
-            "mitre_techniques": ip_data.get("mitre_techniques", []),
-        })
-    for h_data in ioc_data.get("hashes", []):
-        all_iocs_flat.append({
-            "indicator": h_data.get("hash", ""),
-            "indicator_type": "hash",
-            "reputation_score": h_data.get("reputation_score", 0),
-            "malware_family": h_data.get("malware_family"),
-            "campaign": h_data.get("campaign"),
-            "verdict": h_data.get("verdict", "Unknown"),
-            "mitre_techniques": h_data.get("mitre_techniques", []),
-        })
-    for d_data in ioc_data.get("domains", []):
-        all_iocs_flat.append({
-            "indicator": d_data.get("domain", ""),
-            "indicator_type": "domain",
-            "reputation_score": d_data.get("reputation_score", 0),
-            "malware_family": d_data.get("malware_family"),
-            "campaign": d_data.get("campaign"),
-            "verdict": d_data.get("verdict", "Unknown"),
-            "mitre_techniques": d_data.get("mitre_techniques", []),
-        })
-
-    prompt = f"""You are a senior SOC analyst AI. Analyse the following security case and produce a structured JSON response.
-
-CASE DATA:
-{json.dumps(case_data["case"], indent=2)}
-
-ALERTS ({len(case_data["alerts"])} total):
-{json.dumps(case_data["alerts"], indent=2)}
-
-AFFECTED ASSETS:
-{json.dumps(case_data["assets"], indent=2)}
-
-TOP PLAYBOOK MATCH (relevance score: {selected_playbook.get('relevance_score', 0)}):
-{json.dumps(selected_playbook, indent=2)}
-
-ALL PLAYBOOK CANDIDATES:
-{json.dumps(rag_results, indent=2)}
-
-IOC ENRICHMENTS:
-{json.dumps(all_iocs_flat, indent=2)}
-{override_note}
-{feedback_note}
-
-Produce a JSON response matching this exact schema (all fields required):
-{{
-  "case_id": "<case_id>",
-  "case_summary": "<3-5 sentence analyst-readable prose summary>",
-  "threat_classification": "<specific classification e.g. Credential Abuse / Lateral Movement>",
-  "severity": "<Critical|High|Medium|Low>",
-  "mitre_techniques": [
-    {{"technique_id": "T1078", "technique_name": "Valid Accounts", "tactic": "Defense Evasion"}}
-  ],
-  "blast_radius_endpoints": <int>,
-  "blast_radius_users": <int>,
-  "recommended_playbook_id": "<PB-xxx>",
-  "recommended_playbook_name": "<name>",
-  "playbook_rationale": "<1-2 sentence explanation>",
-  "confidence_score": <0.0-1.0>,
-  "ioc_enrichments": [
-    {{"indicator": "<value>", "indicator_type": "<ip|hash|domain>", "reputation_score": <int>, "malware_family": <str|null>, "campaign": <str|null>, "verdict": "<verdict>", "mitre_techniques": []}}
-  ],
-  "analyst_actions_required": ["<action 1>", "<action 2>"],
-  "estimated_containment_time_minutes": <int>
-}}
-
-Respond with ONLY the JSON object. No markdown, no explanation."""
-
-    if use_vertex:
-        import vertexai
-        from vertexai.generative_models import GenerativeModel
-        project = os.getenv("GOOGLE_CLOUD_PROJECT")
-        location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-        vertexai.init(project=project, location=location, api_key=api_key)
-        model = GenerativeModel(_get_gemini_model())
-        response = model.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json", "temperature": 0.2},
-        )
-        raw_text = response.text
-    else:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(_get_gemini_model())
-        response = model.generate_content(
-            prompt,
-            generation_config=genai.types.GenerationConfig(
-                response_mime_type="application/json",
-                temperature=0.2,
-            ),
-        )
-        raw_text = response.text
-
-    # Parse JSON response
-    try:
-        result = json.loads(raw_text)
-    except json.JSONDecodeError:
-        # Try to extract JSON from response
-        import re
-        match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-        if match:
-            result = json.loads(match.group())
-        else:
-            raise ValueError(f"Could not parse Gemini response as JSON: {raw_text[:200]}")
-
-    return result
-
-
-def step_execute_actions(case_id: str, analysis: dict, analyst_name: str = "SOC Analyst") -> dict:
-    """Step 8: Execute SOAR playbook and update SNOW."""
-    playbook_id = analysis.get("recommended_playbook_id", "PB-003")
-    raw_case = _load_case_data(case_id)
-    snow_ref = raw_case.get("snow_incident_ref", "INC0000000")
-
-    # 1. Trigger playbook
-    exec_result = trigger_playbook(playbook_id, case_id)
-
-    # 2. Add SNOW worknote
-    worknote_text = (
-        f"SENTINEL AI — Automated Action Report\n"
-        f"Playbook Executed: {playbook_id} — {analysis.get('recommended_playbook_name', '')}\n"
-        f"Analyst Approval: {analyst_name} at {_now_iso()}\n"
-        f"Confidence Score: {analysis.get('confidence_score', 0)*100:.0f}%\n"
-        f"Execution ID: {exec_result.get('execution_id', 'N/A')}\n"
-        f"Actions: {len(exec_result.get('action_steps', []))} steps initiated"
+    runner = Runner(
+        app_name='sentinel-soc',
+        agent=soc_orchestrator,
+        session_service=_session_service,
     )
-    add_worknote(snow_ref, worknote_text, author="Sentinel Action Executor (AI)")
-
-    return {"execution": exec_result, "snow_ref": snow_ref}
-
-
-def step_close_case(case_id: str, analysis: dict, execution: dict,
-                    analyst_name: str = "SOC Analyst",
-                    hitl_decision: str = "Accepted") -> dict:
-    """Step 9: Close SNOW ticket and update SecOps case."""
-    raw_case = _load_case_data(case_id)
-    snow_ref = raw_case.get("snow_incident_ref", "INC0000000")
-    exec_result = execution.get("execution", {})
-
-    close_notes = (
-        f"SENTINEL AI — Case Resolution Report\n"
-        f"{'='*60}\n"
-        f"Case ID: {case_id}\n"
-        f"Threat Classification: {analysis.get('threat_classification', '')}\n"
-        f"Severity: {analysis.get('severity', '')}\n\n"
-        f"SUMMARY:\n{analysis.get('case_summary', '')}\n\n"
-        f"PLAYBOOK EXECUTED: {analysis.get('recommended_playbook_id')} — {analysis.get('recommended_playbook_name')}\n"
-        f"Rationale: {analysis.get('playbook_rationale', '')}\n\n"
-        f"HITL DECISION: {hitl_decision} by {analyst_name} at {_now_iso()}\n"
-        f"Confidence Score: {analysis.get('confidence_score', 0)*100:.0f}%\n\n"
-        f"ACTIONS EXECUTED: {len(exec_result.get('action_steps', []))} steps\n"
-        + "\n".join(
-            f"  {s['step']}. {s['action']} → {s['status'].upper()} ({s['duration_seconds']}s)"
-            for s in exec_result.get("action_steps", [])
-        ) +
-        f"\n\nMITRE ATT&CK TECHNIQUES:\n"
-        + ", ".join(t.get("technique_id", "") for t in analysis.get("mitre_techniques", [])) +
-        f"\n\nESTIMATED CONTAINMENT TIME: {analysis.get('estimated_containment_time_minutes', 0)} minutes\n"
-        f"BLAST RADIUS: {analysis.get('blast_radius_endpoints', 0)} endpoints, {analysis.get('blast_radius_users', 0)} users"
+    
+    query = f"Please analyse case {case_id} end-to-end following your pipeline sequence."
+    
+    # Create the session state
+    session = await _session_service.create_session(
+        state={'case_id': case_id}, app_name='sentinel-soc', user_id=analyst_name, session_id=session_id
     )
+    
+    yield {"type": "log", "agent": "ORCHESTRATOR", "message": f"Pipeline initiated for {case_id}"}
+    yield {"type": "step", "step": 1}
+    
+    # We will build up state as tools return
+    case_data = {"case": {}, "alerts": [], "logs": "", "assets": [], "raw_case": _load_case_data(case_id)}
+    rag_results = []
+    ioc_data = {"ips": [], "hashes": [], "domains": []}
+    
+    hit_hitl = False
+    
+    for attempt in range(5):
+        content = types.Content(role='user', parts=[types.Part.from_text(text=query)])
+        events_iter = runner.run_async(session_id=session_id, user_id=analyst_name, new_message=content)
+        
+        async for event in events_iter:
+            author = event.author.upper() if event.author else "SYSTEM"
+            
+            # Determine the pipeline step roughly by author
+            if author == "CASERETRIEVALAGENT": yield {"type": "step", "step": 2}
+            elif author == "RAGPLAYBOOKAGENT": yield {"type": "step", "step": 3}
+            elif author == "THREATINTELAGENT": yield {"type": "step", "step": 4}
+            elif author == "SOCORCHESTRATOR": yield {"type": "step", "step": 5}
+            
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    # Intercept Tool Calls (for logging)
+                    if part.function_call:
+                        name = part.function_call.name
+                        args = dict(part.function_call.args) if part.function_call.args else {}
+                        if name != "transfer_to_agent":
+                            msg = f"→ invoking tool: {name}(...)"
+                            yield {"type": "log", "agent": author, "message": msg}
+                            await asyncio.sleep(yield_delay)
+                    
+                    # Intercept Tool Responses (to build UI state)
+                    elif part.function_response:
+                        name = part.function_response.name
+                        
+                        try:
+                            from google.protobuf.json_format import MessageToDict
+                            resp = MessageToDict(part.function_response.response._pb) if hasattr(part.function_response.response, "_pb") else dict(part.function_response.response)
+                        except Exception:
+                            resp = dict(part.function_response.response) if hasattr(part.function_response.response, "items") else part.function_response.response
+                        
+                        def unwrap_value(r, prefer_list=False):
+                            if not isinstance(r, dict): 
+                                return [r] if prefer_list and not isinstance(r, list) else r
+                            for k in ["result", "value", "list", "items", "alerts", "assets", "logs", name]:
+                                if k in r: 
+                                    val = r[k]
+                                    return [val] if prefer_list and not isinstance(val, list) else val
+                            if len(r) == 1: 
+                                val = list(r.values())[0]
+                                return [val] if prefer_list and not isinstance(val, list) else val
+                            return [r] if prefer_list else r
 
-    close_result = close_incident(snow_ref, close_notes)
-    update_case_status(case_id, "RESOLVED", f"Resolved via Sentinel AI — {analysis.get('recommended_playbook_id')}")
+                        if name == "get_case": case_data["raw_case"] = resp
+                        elif name == "list_alerts": case_data["alerts"] = unwrap_value(resp, True)
+                        elif name == "get_raw_logs": case_data["logs"] = unwrap_value(resp, False)
+                        elif name == "get_affected_assets": case_data["assets"] = unwrap_value(resp, True)
+                        elif name == "query_playbook_corpus": 
+                            lst = unwrap_value(resp, True)
+                            if isinstance(lst, list): rag_results.extend(lst)
+                        elif name == "enrich_ip": ioc_data["ips"].append(resp)
+                        elif name == "enrich_hash": ioc_data["hashes"].append(resp)
+                        elif name == "enrich_domain": ioc_data["domains"].append(resp)
+                        
+                        if name in ["get_affected_assets"]:
+                            yield {"type": "state", "key": "case_data", "data": case_data}
+                            yield {"type": "log", "agent": "CASE-RETRIEVAL", "message": f"✓ Fetched {len(case_data.get('alerts',[]))} alerts and {len(case_data.get('assets',[]))} assets."}
+                        elif name == "query_playbook_corpus":
+                            yield {"type": "state", "key": "rag_results", "data": rag_results}
+                            top = rag_results[0] if rag_results else {}
+                            yield {"type": "log", "agent": "RAG-PLAYBOOK", "message": f"✓ Top match: {top.get('playbook_id')} score={top.get('relevance_score')}"}
+                        elif name in ["enrich_ip", "enrich_hash", "enrich_domain"]:
+                            yield {"type": "state", "key": "ioc_data", "data": ioc_data}
+                            yield {"type": "log", "agent": "THREAT-INTEL", "message": f"✓ Enriched IoC from {name}"}
 
-    return {
-        "snow_ref": snow_ref,
-        "close_result": close_result,
-        "close_notes": close_notes,
-        "snow_state": get_incident_state(snow_ref),
-    }
+                    # Agent textual responses
+                    elif part.text:
+                        # Check if this is the structured schema output from SOCOrchestrator
+                        if author == "SOCORCHESTRATOR":
+                            extracted_json = None
+                            try:
+                                extracted_json = json.loads(part.text)
+                            except json.JSONDecodeError:
+                                import re
+                                match = re.search(r'\{.*\}', part.text, re.DOTALL)
+                                if match:
+                                    try:
+                                        extracted_json = json.loads(match.group())
+                                    except Exception:
+                                        pass
+                                        
+                            if extracted_json and "recommended_playbook_id" in extracted_json:
+                                # Also check if it's the actual outer JSON
+                                if "case_summary" in extracted_json:
+                                    yield {"type": "state", "key": "analysis", "data": extracted_json}
+                                    conf = extracted_json.get("confidence_score", 0)
+                                    yield {"type": "step", "step": 6}
+                                    yield {"type": "log", "agent": "GEMINI", "message": f"✓ Analysis complete · confidence={conf*100:.0f}%"}
+                                    
+                                    # Trigger conditional HITL based on severity and confidence
+                                    severity = case_data.get("raw_case", {}).get("severity", "HIGH").upper()
+                                    if severity in ["LOW", "MEDIUM"] and conf >= 0.85:
+                                        msg = f"Auto-remediating {severity} severity case (Confidence: {conf*100:.0f}%)"
+                                        yield {"type": "log", "agent": "ORCHESTRATOR", "message": msg}
+                                        yield {"type": "hitl", "state": "auto_approved"}
+                                        hit_hitl = True
+                                        return
+                                    else:
+                                        msg = f"Recommendation ready — awaiting HITL approval ({severity} severity, {conf*100:.0f}% confidence)"
+                                        yield {"type": "log", "agent": "ORCHESTRATOR", "message": msg}
+                                        yield {"type": "hitl", "state": "awaiting"}
+                                        hit_hitl = True
+                                        return
+                                
+                            # Fallback if it hits HITL keyword without proper JSON parsed
+                            if "AWAITING_HITL_APPROVAL" in part.text:
+                                yield {"type": "log", "agent": "ORCHESTRATOR", "message": "Recommendation ready — awaiting HITL approval"}
+                                yield {"type": "hitl", "state": "awaiting"}
+                                hit_hitl = True
+                                return
+                                
+                            # Log intermediate thoughts if it's not JSON
+                            if not extracted_json and "AWAITING" not in part.text:
+                                msg = part.text.strip()
+                                if msg: yield {"type": "log", "agent": "ORCHESTRATOR", "message": msg}
+
+                        if "transfer" not in part.text.lower():
+                            pass
+
+        if hit_hitl:
+            break
+            
+        yield {"type": "log", "agent": "SYSTEM", "message": f"Pipeline auto-resuming (Attempt {attempt+2}/5)..."}
+        query = "Please continue where you left off. You MUST complete ALL 4 steps of the PIPELINE SEQUENCE and output the final CaseAnalysis JSON with 'AWAITING_HITL_APPROVAL'."
+
+
+async def resume_adk_pipeline(session_id: str, analyst_name: str, decision: str, analysis: dict, case_id: str, override_playbook: str | None = None, feedback: str | None = None):
+    """
+    Resumes the ADK pipeline to handle HITL and execution.
+    """
+    runner = Runner(
+        app_name='sentinel-soc',
+        agent=soc_orchestrator,
+        session_service=_session_service,
+    )
+    
+    if decision == "override":
+        msg = f"ANALYST OVERRIDE: The analyst rejected the initial playbook and explicitly selected playbook {override_playbook}. Please re-evaluate the case given this selection and output the new CaseAnalysis structured JSON."
+    elif decision == "reject":
+        msg = f"ANALYST FEEDBACK: {feedback}\nPlease incorporate this feedback, re-evaluate, and output the new CaseAnalysis structured JSON."
+    else: # Accepted
+        msg = "HITL APPROVAL RECEIVED. Please proceed with Action Execution."
+        
+    content = types.Content(role='user', parts=[types.Part.from_text(text=msg)])
+    
+    events_iter = runner.run_async(session_id=session_id, user_id=analyst_name, new_message=content)
+    
+    if decision != "Accepted":
+        yield {"type": "log", "agent": "ORCHESTRATOR", "message": f"HITL: Processing {decision}..."}
+        
+    execution = {"execution": {"execution_id": "", "status": "", "action_steps": []}, "snow_ref": ""}
+    closure = {"snow_ref": "", "close_result": {}, "close_notes": "", "snow_state": {}}
+    
+    # Inject snow ref for closure
+    raw_case = _load_case_data(case_id)
+    execution["snow_ref"] = raw_case.get("snow_incident_ref", "INC0000000")
+    closure["snow_ref"] = execution["snow_ref"]
+    
+    async for event in events_iter:
+        author = event.author.upper() if event.author else "SYSTEM"
+        
+        if event.content and event.content.parts:
+            for part in event.content.parts:
+                if part.function_call:
+                    name = part.function_call.name
+                    if name != "transfer_to_agent":
+                        yield {"type": "log", "agent": author, "message": f"→ invoking tool: {name}(...)"}
+                
+                elif part.function_response:
+                    name = part.function_response.name
+                    resp = dict(part.function_response.response)
+                    
+                    if name == "trigger_playbook":
+                        execution["execution"] = resp
+                        yield {"type": "state", "key": "execution", "data": execution}
+                        yield {"type": "log", "agent": "ACTION-EXEC", "message": f"✓ Playbook triggered · exec_id={resp.get('execution_id','')[:20]}"}
+                    elif name == "add_worknote":
+                        pass
+                    elif name == "close_incident":
+                        closure["close_result"] = resp
+                        yield {"type": "state", "key": "closure", "data": closure}
+                        yield {"type": "log", "agent": "ACTION-EXEC", "message": f"✓ Incident closed in ServiceNow."}
+                    elif name == "update_case_status":
+                        yield {"type": "log", "agent": "ACTION-EXEC", "message": f"✓ Case status updated in SecOps to RESOLVED."}
+                        
+                elif part.text:
+                    if author == "SOCORCHESTRATOR":
+                        extracted_json = None
+                        try:
+                            extracted_json = json.loads(part.text)
+                        except json.JSONDecodeError:
+                            import re
+                            match = re.search(r'\{.*\}', part.text, re.DOTALL)
+                            if match:
+                                try:
+                                    extracted_json = json.loads(match.group())
+                                except Exception:
+                                    pass
+                                    
+                        if extracted_json and "recommended_playbook_id" in extracted_json:
+                            # Handle re-evaluation CaseAnalysis output
+                            if "case_summary" in extracted_json:
+                                yield {"type": "state", "key": "analysis", "data": extracted_json}
+                                conf = extracted_json.get("confidence_score", 0)
+                                yield {"type": "log", "agent": "GEMINI", "message": f"✓ Re-analysis complete · confidence={conf*100:.0f}%"}
+                            
+                        # If it hits HITL again after re-evaluation
+                        if "AWAITING_HITL_APPROVAL" in part.text:
+                            yield {"type": "log", "agent": "ORCHESTRATOR", "message": "Revised recommendation ready — awaiting HITL approval"}
+                            yield {"type": "hitl", "state": "awaiting"}
+                            return
+
+    if execution["execution"].get("execution_id"):
+        # Done Execution phase
+        yield {"type": "finish"}
+

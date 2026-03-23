@@ -43,7 +43,7 @@ The system reduces mean-time-to-respond (MTTR) by autonomously gathering case da
 |  STREAMLIT UI  (app.py)                                                 |
 |  [ Pipeline Stepper ]  [ HITL Approval Gate ]  [ Audit Trail Panel ]    |
 +----------------------------------+--------------------------------------+
-                                   |  runner.py (pipeline coordinator)
+                                   |  runner.py (ADK Runner event stream)
                                    |
 +----------------------------------+--------------------------------------+
 |  AGENTIC LAYER  (Google ADK + Gemini 2.5 Flash)                         |
@@ -201,7 +201,7 @@ ActionExecutorAgent
 | Entry Point | Purpose |
 |---|---|
 | `sentinel/agent.py` | ADK-discoverable root. Sets `root_agent = soc_orchestrator`. Used by `adk web` and `adk run`. |
-| `runner.py` | Streamlit pipeline coordinator. Calls tools and Gemini directly for step-by-step UI rendering. |
+| `runner.py` | Streamlit pipeline integration. Uses `google.adk.runners.Runner` to execute `soc_orchestrator` and yields ADK `Event`s to drive the UI. |
 
 ---
 
@@ -228,9 +228,9 @@ Step 4:  THREAT INTEL ENRICHMENT  [ThreatIntelAgent]
          Output: ioc_enrichments (per-IoC reputation, malware family, MITRE techniques)
 
 Steps 5-6: LLM REASONING + STRUCTURED OUTPUT  [SOCOrchestrator / Gemini]
-         Input:  case_context + playbook_match + ioc_enrichments
-         Model:  gemini-2.5-flash (JSON mode, temperature=0.2)
-         Output: CaseAnalysis (Pydantic schema)
+         Process: ADK AutoFlow routes collected tool data automatically
+         Model:  gemini-2.5-flash via ADK LlmAgent
+         Output: CaseAnalysis (Pydantic schema defined natively in ADK)
 
 Step 7:  HITL APPROVAL GATE
          Orchestrator emits: "AWAITING_HITL_APPROVAL"

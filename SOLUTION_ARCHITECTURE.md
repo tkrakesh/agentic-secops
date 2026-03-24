@@ -89,25 +89,22 @@ flowchart TD
     subgraph ADK["Google ADK — Agentic Layer  sentinel/"]
         direction TB
 
-        ROOT["SOCOrchestrator\n--- root_agent ---\nClass: LlmAgent\nModel: gemini-2.5-flash\nFile: agents/orchestrator.py\nSchema: Enforced via Prompt\noutput_key: case_analysis\n\nPipeline Sequence:\n1. Case Retrieval\n2. Playbook RAG\n3. Threat Intel Enrichment\n4. Gemini Analysis\n5. HITL Approval Gate\n6. Action Execution"]
+        ROOT["SOCOrchestrator\n--- root_agent ---\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/orchestrator.py\nSchema: Enforced via Prompt\noutput_key: case_analysis\n\nPipeline Sequence:\n1. Case Retrieval\n2. Playbook RAG\n3. Threat Intel Enrichment\n4. Threat Analyst Analysis\n5. HITL Approval Gate\n6. Action Execution"]
 
         subgraph SA["sub_agents list"]
             direction LR
 
-            CR["CaseRetrievalAgent\nClass: LlmAgent\nModel: gemini-2.5-flash\nFile: agents/case_retrieval.py\nStep: 2  Mode: READ-ONLY\noutput_key: case_context"]
+            EN["EnrichmentAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/enrichment.py\nStep: 2-4  Mode: READ-ONLY\noutput_key: session_state"]
 
-            RAG["RAGPlaybookAgent\nClass: LlmAgent\nModel: gemini-2.5-flash\nFile: agents/rag_playbook.py\nStep: 3  Mode: READ-ONLY\noutput_key: playbook_match"]
+            TA["ThreatAnalystAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/threat_analyst.py\nStep: 5-6  Mode: REASONER\noutput_key: case_analysis"]
 
-            TI["ThreatIntelAgent\nClass: LlmAgent\nModel: gemini-2.5-flash\nFile: agents/threat_intel.py\nStep: 4  Mode: READ-ONLY\noutput_key: ioc_enrichments"]
-
-            AE["ActionExecutorAgent\nClass: LlmAgent\nModel: gemini-2.5-flash\nFile: agents/action_executor.py\nStep: 8  Mode: WRITE\noutput_key: execution_log\nHITL-GATED"]
+            AE["ActionExecutorAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/action_executor.py\nStep: 8  Mode: WRITE\noutput_key: execution_log\nHITL-GATED"]
         end
     end
 
-    ROOT -->|Step 2: delegate| CR
-    ROOT -->|Step 3: delegate| RAG
-    ROOT -->|Step 4: delegate| TI
-    ROOT -->|Steps 5-6: synthesise| HITL
+    ROOT -->|Step 1: delegate| EN
+    ROOT -->|Step 5-6: delegate| TA
+    ROOT -->|Step 7: HITL Gate| HITL
     ROOT -->|Step 8: delegate after approval| AE
 
     HITL["HITL Approval Gate\nStreamlit UI\n---\nAPPROVE  proceed to execute\nOVERRIDE select different playbook\nREJECT   provide feedback"]
@@ -165,11 +162,10 @@ flowchart TD
 
 | Agent | Class | Model | Pipeline Step | Output Key | Access Level |
 |---|---|---|---|---|---|
-| `SOCOrchestrator` | `LlmAgent` | gemini-2.5-flash | 5–6 (Reasoner) | `case_analysis` | READ + DELEGATE |
-| `CaseRetrievalAgent` | `LlmAgent` | gemini-2.5-flash | 2 (Data Fetch) | `case_context` | READ-ONLY |
-| `RAGPlaybookAgent` | `LlmAgent` | gemini-2.5-flash | 3 (Playbook Lookup) | `playbook_match` | READ-ONLY |
-| `ThreatIntelAgent` | `LlmAgent` | gemini-2.5-flash | 4 (IoC Enrichment) | `ioc_enrichments` | READ-ONLY |
-| `ActionExecutorAgent` | `LlmAgent` | gemini-2.5-flash | 8–9 (Execute) | `execution_log` | WRITE (HITL-gated) |
+| `SOCOrchestrator` | `LlmAgent` | gemini-2.0-flash | 5–6 (Reasoner) | `case_analysis` | READ + DELEGATE |
+| `EnrichmentAgent` | `LlmAgent` | gemini-2.0-flash | 2–4 (Parallel Fetch) | N/A (State) | READ-ONLY |
+| `ThreatAnalystAgent` | `LlmAgent` | gemini-2.0-flash | 5–6 (Analysis) | `case_analysis` | READ-ONLY |
+| `ActionExecutorAgent` | `LlmAgent` | gemini-2.0-flash | 8–9 (Execute) | `execution_log` | WRITE (HITL-gated) |
 
 ### 4.3 Tool Map per Agent
 
@@ -222,14 +218,14 @@ Step 3:  PLAYBOOK IDENTIFICATION  [RAGPlaybookAgent]
          Output: playbook_match (Top 3 playbooks with relevance scores and excerpts)
          HITL:   Analyst may OVERRIDE the top recommendation
 
-Step 4:  THREAT INTEL ENRICHMENT  [ThreatIntelAgent]
+Step 4:  THREAT INTEL ENRICHMENT  [EnrichmentAgent]
          Tools:  enrich_ip / enrich_hash / enrich_domain for each IoC
          Sources: Google Threat Intelligence + VirusTotal Enterprise
          Output: ioc_enrichments (per-IoC reputation, malware family, MITRE techniques)
 
-Steps 5-6: LLM REASONING + STRUCTURED OUTPUT  [SOCOrchestrator / Gemini]
+Steps 5-6: LLM REASONING + STRUCTURED OUTPUT  [ThreatAnalystAgent]
          Process: ADK AutoFlow routes collected tool data automatically
-         Model:  gemini-2.5-flash via ADK LlmAgent
+         Model:  gemini-2.0-flash via ADK LlmAgent
          Output: CaseAnalysis (Pydantic schema defined natively in ADK)
 
 Step 7:  HITL APPROVAL GATE
@@ -409,9 +405,8 @@ Agentic-SecOps/
     |
     +-- agents/
     |   +-- orchestrator.py         # SOCOrchestrator  (root LlmAgent)
-    |   +-- case_retrieval.py       # CaseRetrievalAgent
-    |   +-- rag_playbook.py         # RAGPlaybookAgent
-    |   +-- threat_intel.py         # ThreatIntelAgent
+    |   +-- enrichment.py           # EnrichmentAgent (Step 2,3,4)
+    |   +-- threat_analyst.py       # ThreatAnalystAgent (Step 5,6)
     |   +-- action_executor.py      # ActionExecutorAgent  (HITL-gated WRITE)
     |
     +-- tools/

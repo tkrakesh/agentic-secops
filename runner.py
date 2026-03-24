@@ -25,6 +25,28 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
+# Agents mapping for log consistency
+AGENT_MAP = {
+    "SOCORCHESTRATOR": "SOCOrchestrator",
+    "ENRICHMENTAGENT": "EnrichmentAgent",
+    "THREATANALYSTAGENT": "ThreatAnalystAgent",
+    "ACTIONEXECUTORAGENT": "ActionExecutorAgent",
+    # Legacy / Fallback mapping
+    "ORCHESTRATOR": "SOCOrchestrator",
+    "ENRICHMENT": "EnrichmentAgent",
+    "AGENT": "ThreatAnalystAgent",
+    "ANALYSISAGENT": "ThreatAnalystAgent",
+    "GEMINIANALYSISAGENT": "ThreatAnalystAgent",
+    "ACTION-EXEC": "ActionExecutorAgent",
+    "SYSTEM": "Sentinel System"
+}
+
+def _get_agent_name(raw_name: str) -> str:
+    """Standardize agent names for professional logging."""
+    if not raw_name: return "Sentinel"
+    n = raw_name.upper()
+    return AGENT_MAP.get(n, n.capitalize())
+
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
@@ -116,8 +138,9 @@ async def run_adk_pipeline(
             user_id=analyst_name,
             new_message=content,
         ):
-            author = event.author.upper() if event.author else "SYSTEM"
-            if author == "GEMINIANALYSISAGENT" or author == "SOCORCHESTRATOR":
+            author = _get_agent_name(event.author)
+            ua = author.upper()
+            if ua == "THREATANALYSTAGENT" or ua == "SOCORCHESTRATOR":
                 yield {"type": "step", "step": 5}
 
             if not event.content or not event.content.parts:
@@ -147,14 +170,14 @@ async def run_adk_pipeline(
                             rag_results = data["rag_results"]; yield {"type": "state", "key": "rag_results", "data": rag_results}
                         if "ioc_enrichments" in data:
                             ioc_data = data["ioc_enrichments"]; yield {"type": "state", "key": "ioc_data", "data": ioc_data}
-                        yield {"type": "log", "agent": "ENRICHMENT", "message": "✓ Parallel enrichment complete."}
+                        yield {"type": "log", "agent": "EnrichmentAgent", "message": "✓ Parallel enrichment complete."}
 
                     elif name == "trigger_playbook":
-                        yield {"type": "log", "agent": "ACTION-EXEC", "message": f"✓ Playbook triggered."}
+                        yield {"type": "log", "agent": "ActionExecutorAgent", "message": f"✓ Playbook triggered."}
 
                 elif part.text and part.text.strip():
                     text = part.text.strip()
-                    if author in ("SOCORCHESTRATOR", "GEMINIANALYSISAGENT"):
+                    if ua in ("SOCORCHESTRATOR", "THREATANALYSTAGENT"):
                         extracted = _extract_json(text)
                         if extracted and "recommended_playbook_id" in extracted:
                             yield {"type": "state", "key": "analysis", "data": extracted}
@@ -184,7 +207,14 @@ async def run_adk_pipeline(
     # Fallback to check session state for analysis if stream ended early
     if not hitl_emitted:
         session = await session_service.get_session(app_name="sentinel-soc", user_id=analyst_name, session_id=session_id)
-        if session and session.state.get("case_analysis"):
+        raw_analysis = session.state.get("case_analysis")
+        if session and raw_analysis:
+            # ADK session state stores raw agent output (string), must extract as dict for UI
+            data = _extract_json(raw_analysis) if isinstance(raw_analysis, str) else raw_analysis
+            if data:
+                yield {"type": "state", "key": "analysis", "data": data}
+                yield {"type": "step", "step": 6}
+                yield {"type": "log", "agent": "SOCOrchestrator", "message": "✓ Analysis retrieved from session state."}
             yield {"type": "hitl", "state": "awaiting"}
 
 async def resume_adk_pipeline(
@@ -229,7 +259,8 @@ async def resume_adk_pipeline(
             user_id=analyst_name,
             new_message=content,
         ):
-            author = event.author.upper() if event.author else "SYSTEM"
+            author = _get_agent_name(event.author)
+            ua = author.upper()
             if not event.content or not event.content.parts: continue
 
             for part in event.content.parts:
@@ -246,9 +277,9 @@ async def resume_adk_pipeline(
                         execution["execution"] = resp
                         yield {"type": "step", "step": 8}
                         yield {"type": "state", "key": "execution", "data": execution}
-                        yield {"type": "log", "agent": "ACTION-EXEC", "message": f"✓ Playbook triggered."}
+                        yield {"type": "log", "agent": "ActionExecutorAgent", "message": f"✓ Playbook triggered."}
                     elif name == "add_worknote":
-                        yield {"type": "log", "agent": "ACTION-EXEC", "message": "✓ Audit worknote added to ServiceNow."}
+                        yield {"type": "log", "agent": "ActionExecutorAgent", "message": "✓ Audit worknote added to ServiceNow."}
                     elif name == "close_incident":
                         closure["close_result"] = resp
                         closure["close_notes"] = resp.get("close_notes", "")
@@ -258,19 +289,19 @@ async def resume_adk_pipeline(
                         except Exception: pass
                         yield {"type": "step", "step": 9}
                         yield {"type": "state", "key": "closure", "data": closure}
-                        yield {"type": "log", "agent": "ACTION-EXEC", "message": "✓ Incident closed in ServiceNow."}
+                        yield {"type": "log", "agent": "ActionExecutorAgent", "message": "✓ Incident closed in ServiceNow."}
                     elif name == "update_case_status":
-                        yield {"type": "log", "agent": "ACTION-EXEC", "message": "✓ Case status updated in SecOps to RESOLVED."}
+                        yield {"type": "log", "agent": "ActionExecutorAgent", "message": "✓ Case status updated in SecOps to RESOLVED."}
 
                 elif part.text and part.text.strip():
                     text = part.text.strip()
-                    if author in ("SOCORCHESTRATOR", "GEMINIANALYSISAGENT"):
+                    if ua in ("SOCORCHESTRATOR", "THREATANALYSTAGENT"):
                         extracted = _extract_json(text)
                         if extracted and "recommended_playbook_id" in extracted:
                             yield {"type": "state", "key": "analysis", "data": extracted}
-                            yield {"type": "log", "agent": "AGENT", "message": "✓ Re-analysis complete."}
+                            yield {"type": "log", "agent": "ThreatAnalystAgent", "message": "✓ Re-analysis complete."}
                         if "AWAITING_HITL_APPROVAL" in text:
-                            yield {"type": "log", "agent": "ORCHESTRATOR", "message": "Revised recommendation ready — awaiting HITL approval"}
+                            yield {"type": "log", "agent": "SOCOrchestrator", "message": "Revised recommendation ready — awaiting HITL approval"}
                             yield {"type": "hitl", "state": "awaiting"}
                             return
     except Exception as e:

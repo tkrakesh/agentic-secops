@@ -1,5 +1,5 @@
 """
-ADK Agent: GeminiAnalysisAgent
+ADK Agent: ThreatAnalystAgent
 -------------------------------
 Specialist agent for reasoning over all collected data to produce the final
 structured CaseAnalysis JSON.
@@ -77,8 +77,8 @@ confidence_score must be a float between 0.0 and 1.0
 Output ONLY the raw JSON object. No preamble, no markdown fences, no explanation.
 After outputting the JSON, transfer back to SOCOrchestrator."""
 
-gemini_analysis_agent = LlmAgent(
-    name="GeminiAnalysisAgent",
+threat_analyst_agent = LlmAgent(
+    name="ThreatAnalystAgent",
     description=(
         "Synthesises case context, playbook RAG matches, and IoC enrichments "
         "from session state into a final structured CaseAnalysis JSON report. "

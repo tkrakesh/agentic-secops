@@ -473,7 +473,7 @@ with main_col:
                             if event["step"] == 2: status.update(label="🔍 EnrichmentAgent: Gathering Intelligence (Steps 2-4)...", state="running")
                             elif event["step"] == 3: status.update(label="🔍 EnrichmentAgent: Querying RAG Playbooks...", state="running")
                             elif event["step"] == 4: status.update(label="🔍 EnrichmentAgent: Enriching Threat Intel...", state="running")
-                            elif event["step"] == 5: status.update(label="🧠 AnalysisAgent: Synthesizing Threat Report (Step 5)...", state="running")
+                            elif event["step"] == 5: status.update(label="🧠 ThreatAnalystAgent: Synthesizing Threat Report (Step 5)...", state="running")
                             elif event["step"] == 6: status.update(label="✅ Recommendation Ready", state="complete")
                         elif event["type"] == "active_steps":
                             st.session_state["active_steps"] = event["steps"]

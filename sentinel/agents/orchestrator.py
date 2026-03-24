@@ -13,7 +13,7 @@ from google.adk.agents import LlmAgent
 
 from sentinel.agents.action_executor import action_executor_agent
 from sentinel.agents.enrichment import enrichment_agent
-from sentinel.agents.gemini_analysis import gemini_analysis_agent
+from sentinel.agents.threat_analyst import threat_analyst_agent
 
 MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.0-flash")
 
@@ -29,12 +29,12 @@ STEP 1 — Delegate to EnrichmentAgent.
   Wait for it to return with Case Retrieval, RAG, and Threat Intel completion.
   Note: This fills Steps 2, 3, and 4 of the UI pipeline.
 
-STEP 2 — Delegate to GeminiAnalysisAgent.
+STEP 2 — Delegate to ThreatAnalystAgent.
   It will read all session state and produce the CaseAnalysis JSON.
   Wait for it to return the JSON before proceeding.
 
 STEP 3 — Analysis Delivery:
-  Once GeminiAnalysisAgent returns its JSON output, relay that JSON verbatim
+  Once ThreatAnalystAgent returns its JSON output, relay that JSON verbatim
   in your response, followed by exactly: AWAITING_HITL_APPROVAL.
   Stop and wait for user input.
 
@@ -47,7 +47,7 @@ STEP 4 — Action Handover:
 CRITICAL RULES:
 - Complete each step fully before starting the next.
 - Never call any tools yourself — only delegate to sub-agents.
-- After GeminiAnalysisAgent completes (and BEFORE HITL is received), output the JSON and AWAITING_HITL_APPROVAL.
+- After ThreatAnalystAgent completes (and BEFORE HITL is received), output the JSON and AWAITING_HITL_APPROVAL.
 - Once you receive "HITL DECISION RECEIVED", you MUST NOT output the JSON again and MUST ONLY transfer to ActionExecutorAgent.
 """.strip()
 
@@ -55,14 +55,14 @@ soc_orchestrator = LlmAgent(
     name="SOCOrchestrator",
     description=(
         "Root SOC Orchestrator that coordinates EnrichmentAgent, "
-        "GeminiAnalysisAgent, and ActionExecutorAgent in a strict "
+        "ThreatAnalystAgent, and ActionExecutorAgent in a strict "
         "sequential pipeline with HITL governance."
     ),
     model=MODEL,
     instruction=ORCHESTRATOR_PROMPT,
     sub_agents=[
         enrichment_agent,
-        gemini_analysis_agent,
+        threat_analyst_agent,
         action_executor_agent,
     ],
 )

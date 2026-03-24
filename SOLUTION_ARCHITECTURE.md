@@ -89,7 +89,7 @@ flowchart TD
     subgraph ADK["Google ADK — Agentic Layer  sentinel/"]
         direction TB
 
-        ROOT["SOCOrchestrator\n--- root_agent ---\nClass: LlmAgent\nModel: gemini-2.5-flash\nFile: agents/orchestrator.py\nOutput schema: CaseAnalysis\noutput_key: case_analysis\n\nDelegation sequence:\n1 CaseRetrievalAgent\n2 RAGPlaybookAgent\n3 ThreatIntelAgent\n4 Synthesise CaseAnalysis\n5 Emit AWAITING_HITL_APPROVAL\n6 ActionExecutorAgent if approved"]
+        ROOT["SOCOrchestrator\n--- root_agent ---\nClass: LlmAgent\nModel: gemini-2.5-flash\nFile: agents/orchestrator.py\nSchema: Enforced via Prompt\noutput_key: case_analysis\n\nPipeline Sequence:\n1. Case Retrieval\n2. Playbook RAG\n3. Threat Intel Enrichment\n4. Gemini Analysis\n5. HITL Approval Gate\n6. Action Execution"]
 
         subgraph SA["sub_agents list"]
             direction LR
@@ -427,7 +427,6 @@ Agentic-SecOps/
         +-- soar_actions.json       # SOAR playbook action step definitions
 ```
 
----
 
 ## 11. Production Upgrade Path
 
@@ -440,3 +439,53 @@ Agentic-SecOps/
 | JSON fixtures | Live SIEM data, real incidents, live threat feeds |
 | `adk web` / Streamlit | Production on **Cloud Run** or **Vertex AI Agent Engine** |
 | In-process sessions | **Vertex AI Agent Engine** managed sessions with persistence |
+
+---
+
+## 12. End-to-End Incident Handling Flow (Example: CASE-001)
+
+The following sequence demonstrates a complete, automated lifecycle for a **Critical** severity incident involving lateral movement and credential abuse.
+
+### Phase 1: Ingestion & Enrichment (Steps 1–4)
+1. **Case Ingestion**: Analyst selects `CASE-001`. The orchestrator triggers Step 2.
+2. **Data Retrieval**: `CaseRetrievalAgent` fetches 3 correlated alerts (PsExec, Lateral Movement) and identifies 14 affected workstations (e.g., `SRV-APP03`).
+3. **Playbook RAG**: `RAGPlaybookAgent` queries the corpus. Using **Domain Threat-Term Boosting**, it identifies `pb-003 — credential compromise response` as the top match (Relevance: 43%).
+4. **Threat Intel**: `ThreatIntelAgent` enriches the C2 IP `45.33.32.156`, revealing it is malicious and linked to the Lazarus Group.
+
+### Phase 2: Analysis & HITL (Steps 5–7)
+5. **Gemini Analysis**: `SOCOrchestrator` (leveraging Gemini 2.5 Flash) synthesizes all tool outputs into a **CaseAnalysis** report.
+   - **Threat Class**: Credential Abuse / Lateral Movement / Command and Control.
+   - **Confidence**: 95%.
+   - **Blast Radius**: 1 User (j.smith), 14 Endpoints.
+6. **Recommendation**: Gemini recommends execution of `pb-003`.
+7. **HITL Gate**: The pipeline pauses. The analyst reviews the required actions (Disable `j.smith`, isolate systems, block IPs) and clicks **APPROVE**.
+
+### Phase 3: Execution & Closure (Steps 8–9)
+8. **Action Execution**: `ActionExecutorAgent` is unlocked by the HITL token.
+   - Calls `trigger_playbook` in Google SecOps SOAR.
+   - Appends a full audit worknote to ServiceNow incident `INC0041892`.
+9. **Case Closure**: 
+   - `ActionExecutorAgent` resolves the ServiceNow incident.
+   - Case status in Google SecOps SIEM is updated to **RESOLVED**.
+   - **Final Result**: Incident contained in **45 minutes** (estimated) vs. days in manual SOCs.
+
+---
+
+### Dashboard Operations View
+
+```text
+AVG. CONTAINMENT     ACTIVE CRITICALS     AUTO-REMEDIATION
+    2m 14s                  03                   84%
+ ↑ 12% vs week          High Alert           Target: 90%
+```
+
+**Pipeline Progress:**
+- [x] 1. Case Ingestion
+- [x] 2. Data Retrieval
+- [x] 3. Playbook RAG
+- [x] 4. Threat Intel
+- [x] 5. Gemini Analysis
+- [x] 6. Recommendation
+- [x] 7. HITL Approval
+- [x] 8. Action Execution
+- [x] 9. Case Closure

@@ -66,6 +66,15 @@ _corpus_cache = {}
 _vocab = set()
 _idf = {}
 
+# Terms that are highly relevant to security playbooks receive a weight boost in the demo
+_DOMAIN_BOOST_TERMS = {
+    "lateral", "movement", "credential", "abuse", "domain", "admin", "psexec",
+    "tunnelling", "exfiltration", "c2", "outbound", "bypass", "dns", "beacon",
+    "ransomware", "precursor", "strike", "cobalt", "powershell", "encoded",
+    "phishing", "malicious", "links", "malware", "insider", "threat", "privilege",
+    "misuse", "data", "compromise",
+}
+
 def _init_tf_idf():
     """Builds a rudimentary TF-IDF index for the playbook markdown files."""
     global _corpus_cache, _vocab, _idf
@@ -91,8 +100,13 @@ def _score_poc(query_words: list[str], doc_tf: dict, doc_len: int) -> float:
     for w in query_words:
         if w in doc_tf:
             tf = doc_tf[w] / max(1, doc_len)
-            score += tf * _idf.get(w, 0.0)
-    return min(1.0, score * 10)
+            idf = _idf.get(w, 0.0)
+            # Apply domain boost for specific security terms in the demo
+            if w in _DOMAIN_BOOST_TERMS:
+                idf *= 2.5
+            score += tf * idf
+    # Scale score for better visibility in the UI (0.0-1.0 range)
+    return min(1.0, score * 12)
 
 
 def _query_poc(query_text: str, top_k: int) -> list[dict]:

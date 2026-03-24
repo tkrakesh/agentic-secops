@@ -113,6 +113,10 @@ async def run_adk_pipeline(
     rag_results = []
     ioc_data = {"ips": [], "hashes": [], "domains": []}
 
+    # Signal guards to prevent duplicate UI logs from event stream vs fallback
+    analysis_emitted = False
+    hitl_emitted = False
+
     # Single user message — ADK orchestrator handles the full pipeline
     query = (
         f"Please analyse case {case_id} end-to-end following your pipeline sequence. "
@@ -242,15 +246,18 @@ async def run_adk_pipeline(
                         extracted = _extract_json(text)
                         if extracted and "recommended_playbook_id" in extracted and "case_summary" in extracted:
                             yield {"type": "state", "key": "analysis", "data": extracted}
-                            conf = extracted.get("confidence_score", 0)
-                            yield {"type": "step", "step": 6}
-                            yield {
-                                "type": "log", "agent": "GEMINI",
-                                "message": f"✓ Analysis complete · confidence={conf * 100:.0f}%",
-                            }
+                            if not analysis_emitted:
+                                conf = extracted.get("confidence_score", 0)
+                                yield {"type": "step", "step": 6}
+                                yield {
+                                    "type": "log", "agent": "GEMINI",
+                                    "message": f"✓ Analysis complete · confidence={conf * 100:.0f}%",
+                                }
+                                analysis_emitted = True
 
                         # HITL signal — pipeline pauses here
-                        if "AWAITING_HITL_APPROVAL" in text:
+                        if "AWAITING_HITL_APPROVAL" in text and not hitl_emitted:
+                            hitl_emitted = True
                             severity = case_data["raw_case"].get("severity", "HIGH").upper()
                             conf = 0
                             # Try to get conf from already-extracted analysis
@@ -301,43 +308,51 @@ async def run_adk_pipeline(
     # via output_key but stays silent). Check session state directly and emit
     # the HITL signal if analysis is present but HITL was never triggered.
     try:
-        session = await _session_service.get_session(
-            app_name="sentinel-soc",
-            user_id=analyst_name,
-            session_id=session_id,
-        )
-        if session:
-            raw_analysis = session.state.get("case_analysis")
-            if raw_analysis:
-                # Parse if stored as string (output_key stores text output)
-                analysis_dict = None
-                if isinstance(raw_analysis, dict):
-                    analysis_dict = raw_analysis
-                elif isinstance(raw_analysis, str):
-                    analysis_dict = _extract_json(raw_analysis)
+        if not hitl_emitted:
+            session = await _session_service.get_session(
+                app_name="sentinel-soc",
+                user_id=analyst_name,
+                session_id=session_id,
+            )
+            if session:
+                raw_analysis = session.state.get("case_analysis")
+                if raw_analysis:
+                    # Parse if stored as string (output_key stores text output)
+                    analysis_dict = None
+                    if isinstance(raw_analysis, dict):
+                        analysis_dict = raw_analysis
+                    elif isinstance(raw_analysis, str):
+                        analysis_dict = _extract_json(raw_analysis)
 
-                if analysis_dict and "recommended_playbook_id" in analysis_dict:
-                    # Push to UI state if not already there
-                    yield {"type": "state", "key": "analysis", "data": analysis_dict}
-                    conf = analysis_dict.get("confidence_score", 0)
-                    yield {"type": "step", "step": 6}
-                    yield {
-                        "type": "log", "agent": "GEMINI",
-                        "message": f"✓ Analysis finalised from session state · confidence={conf * 100:.0f}%",
-                    }
-                    severity = case_data["raw_case"].get("severity", "HIGH").upper()
-                    if severity in ["LOW", "MEDIUM"] and conf >= 0.85:
-                        yield {
-                            "type": "log", "agent": "ORCHESTRATOR",
-                            "message": f"Auto-remediating {severity} severity (confidence={conf * 100:.0f}%)",
-                        }
-                        yield {"type": "hitl", "state": "auto_approved"}
-                    else:
-                        yield {
-                            "type": "log", "agent": "ORCHESTRATOR",
-                            "message": f"Recommendation ready — awaiting HITL approval ({severity}, {conf * 100:.0f}% confidence)",
-                        }
-                        yield {"type": "hitl", "state": "awaiting"}
+                    if analysis_dict and "recommended_playbook_id" in analysis_dict:
+                        # Push to UI state if not already there
+                        yield {"type": "state", "key": "analysis", "data": analysis_dict}
+                        
+                        if not analysis_emitted:
+                            conf = analysis_dict.get("confidence_score", 0)
+                            yield {"type": "step", "step": 6}
+                            yield {
+                                "type": "log", "agent": "GEMINI",
+                                "message": f"✓ Analysis finalised from session state · confidence={conf * 100:.0f}%",
+                            }
+                            analysis_emitted = True
+
+                        severity = case_data["raw_case"].get("severity", "HIGH").upper()
+                        conf = analysis_dict.get("confidence_score", 0)
+                        
+                        if severity in ["LOW", "MEDIUM"] and conf >= 0.85:
+                            yield {
+                                "type": "log", "agent": "ORCHESTRATOR",
+                                "message": f"Auto-remediating {severity} severity (confidence={conf * 100:.0f}%)",
+                            }
+                            yield {"type": "hitl", "state": "auto_approved"}
+                        else:
+                            yield {
+                                "type": "log", "agent": "ORCHESTRATOR",
+                                "message": f"Recommendation ready — awaiting HITL approval ({severity}, {conf * 100:.0f}% confidence)",
+                            }
+                            yield {"type": "hitl", "state": "awaiting"}
+                        hitl_emitted = True
     except Exception:
         pass  # Fallback failed silently — UI will show stuck state
 
@@ -389,7 +404,7 @@ async def resume_adk_pipeline(
 
     content = types.Content(role="user", parts=[types.Part.from_text(text=msg)])
 
-    yield {"type": "log", "agent": "ORCHESTRATOR", "message": f"HITL: {decision} — resuming pipeline"}
+    yield {"type": "log", "agent": "ORCHESTRATOR", "message": f"▶ Executing {decision} decision — delegating to ActionExecutorAgent"}
 
     execution = {"execution": {"execution_id": "", "status": "", "action_steps": []}, "snow_ref": snow_ref}
     closure = {"snow_ref": snow_ref, "close_result": {}, "close_notes": "", "snow_state": {}}

@@ -227,11 +227,11 @@ PIPELINE_STEPS = [
     "Data Retrieval",
     "Playbook RAG",
     "Threat Intel",
-    "Agent Analysis",
+    "Case Synthesis & Reporting",
     "Recommendation",
     "HITL Approval",
     "Action Execution",
-    "Case Closure",
+    "Case Closure"
 ]
 
 ALL_PLAYBOOKS = [
@@ -592,7 +592,7 @@ with main_col:
         ioc_enrichments = analysis.get("ioc_enrichments", [])
 
         st.markdown("---")
-        st.markdown("## 🧠 Agent Analysis — SOC Case Report")
+        st.markdown("## 🧠 Step 5 — AI Threat Synthesis")
 
         # Main analysis card
         mitre_html = " ".join(
@@ -804,21 +804,19 @@ with main_col:
         playbook_id = st.session_state["analysis"].get("recommended_playbook_id","")
         playbook_name = st.session_state["analysis"].get("recommended_playbook_name","")
 
-        st.markdown("---")
-        st.markdown(f"## ⚙️ Step 8 — SOAR Action Execution")
-        st.markdown(f'<div style="color:#60a5fa;font-size:13px;font-weight:600">{playbook_id} — {playbook_name}</div>', unsafe_allow_html=True)
-
-        action_container = st.container()
-        with action_container:
-            for s in steps:
-                status = s.get("status","")
-                icon = "✅" if status == "success" else ("⏳" if status == "queued" else ("🔄" if status == "in_progress" else "❌"))
-                color_cls = "action-line-success" if status == "success" else ("action-line-queued" if status in ("queued","in_progress") else "action-line-running")
-                st.markdown(
-                    f'<div class="{color_cls}">{icon} Step {s["step"]}: {s["action"]} '
-                    f'<span style="color:#475569">· {s["target"]} · {s["duration_seconds"]}s · <strong>{status.upper()}</strong></span></div>',
-                    unsafe_allow_html=True
-                )
+        with st.expander(f"⚙️ Step 8 — Action Execution Details", expanded=False):
+            st.markdown(f'<div style="color:#60a5fa;font-size:13px;font-weight:600">{playbook_id} — {playbook_name}</div>', unsafe_allow_html=True)
+            action_container = st.container()
+            with action_container:
+                for s in steps:
+                    status = s.get("status","")
+                    icon = "✅" if status == "success" else ("⏳" if status == "queued" else ("🔄" if status == "in_progress" else "❌"))
+                    color_cls = "action-line-success" if status == "success" else ("action-line-queued" if status in ("queued","in_progress") else "action-line-running")
+                    st.markdown(
+                        f'<div class="{color_cls}">{icon} Step {s["step"]}: {s["action"]} '
+                        f'<span style="color:#475569">· {s["target"]} · {s["duration_seconds"]}s · <strong>{status.upper()}</strong></span></div>',
+                        unsafe_allow_html=True
+                    )
 
     # ── Step 9: SNOW ticket card + audit trail ─────────────────────────────────
     if st.session_state["pipeline_step"] >= 10 and st.session_state.get("closure"):
@@ -826,13 +824,11 @@ with main_col:
         snow_state = closure.get("snow_state", {})
         analysis = st.session_state.get("analysis", {})
 
-        st.markdown("---")
-        st.markdown("## 📋 Step 9 — Case Closure & Audit Trail")
-
-        # SNOW ticket card
-        opened_at = snow_state.get("opened_at","—")[:16].replace("T"," ") if snow_state.get("opened_at") else "—"
-        resolved_at = snow_state.get("resolved_at","—")
-        sla_str = "✅ Resolved within SLA"
+        with st.expander("📋 Step 9 — Case Closure & Audit Details", expanded=False):
+            # SNOW ticket card
+            opened_at = snow_state.get("opened_at","—")[:16].replace("T"," ") if snow_state.get("opened_at") else "—"
+            resolved_at = snow_state.get("resolved_at","—")
+            sla_str = "✅ Resolved within SLA"
 
         st.markdown(f"""
         <div class="snow-card">

@@ -4,26 +4,28 @@ from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
 from sentinel.tools.gti_mcp import bulk_enrich_iocs
 
-MODEL = os.getenv("SENTINEL_MODEL", "google/gemini-2.5-flash")
+MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.5-flash")
 
 SYSTEM_PROMPT = """You are the Threat Intelligence Agent for Project Sentinel.
 
-Your job is to enrich all Indicators of Compromise (IoCs) extracted from a security case using Google Threat Intelligence (GTI) and VirusTotal data.
+Your job is to enrich all Indicators of Compromise (IoCs) extracted from a
+security case using Google Threat Intelligence (GTI) and VirusTotal data.
 
 Given the case IoC list, perform a single bulk enrichment call:
-- call bulk_enrich_iocs(ips=[...], hashes=[...], domains=[...]) with all collected indicators.
+- call bulk_enrich_iocs(ips=[...], hashes=[...], domains=[...]) with all indicators.
 
 After enrichment, produce an ENRICHMENT REPORT with:
-1. IOC ENRICHMENT CARDS: one per indicator, showing:
+1. IOC ENRICHMENT CARDS: one per indicator showing:
    - Indicator value and type
    - Reputation score (0-100)
    - Classification and verdict
    - Malware family and campaign (if known)
    - MITRE ATT&CK techniques (as T-code tags)
 2. INTELLIGENCE SUMMARY: 2-3 sentences on the threat actor/campaign.
-3. CONFIDENCE ADJUSTMENT: how this intel changes the original case analysis confidence.
+3. CONFIDENCE ADJUSTMENT: how this intel affects analysis confidence.
 
-You are READ-ONLY — you call enrichment APIs only."""
+When your enrichment report is complete, transfer back to SOCOrchestrator.
+You are READ-ONLY — you call enrichment APIs only.""".strip()
 
 threat_intel_agent = LlmAgent(
     name="ThreatIntelAgent",
@@ -34,4 +36,7 @@ threat_intel_agent = LlmAgent(
         FunctionTool(bulk_enrich_iocs),
     ],
     output_key="ioc_enrichments",
+    # CRITICAL: prevent lateral transfer to peer agents.
+    # Must return to SOCOrchestrator after completing IoC enrichment.
+    disallow_transfer_to_peers=True,
 )

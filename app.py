@@ -6,6 +6,41 @@ Run:  streamlit run app.py
 
 from __future__ import annotations
 
+import sys
+import os
+print("="*20)
+print("PYTHON SYS.PATH:")
+for p in sys.path:
+    print(p)
+print("="*20)
+# Attempt to find the correct site-packages directory
+try:
+    # Based on the venv structure, the executable is in venv/bin/python
+    # So site-packages should be in ../lib/pythonX.Y/site-packages
+    # We'll try to be robust to the exact python version
+    py_executable_dir = os.path.dirname(sys.executable)
+    venv_dir = os.path.dirname(py_executable_dir)
+    lib_dir = os.path.join(venv_dir, 'lib')
+    
+    # Find the pythonX.Y directory
+    python_version_dir = ""
+    for d in os.listdir(lib_dir):
+        if d.startswith('python'):
+            python_version_dir = d
+            break
+            
+    if python_version_dir:
+        site_packages_path = os.path.join(lib_dir, python_version_dir, 'site-packages')
+        print(f"LISTING {site_packages_path}:")
+        for item in os.listdir(site_packages_path):
+            print(f"  - {item}")
+    else:
+        print("Could not find pythonX.Y directory in lib.")
+
+except Exception as e:
+    print(f"Could not list site-packages: {e}")
+print("="*20)
+
 import json
 import time
 import sys

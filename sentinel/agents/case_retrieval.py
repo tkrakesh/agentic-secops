@@ -13,14 +13,14 @@ import os
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
 
-MODEL = os.getenv("SENTINEL_MODEL", "google/gemini-2.5-flash")
+MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.5-flash")
 SECOPS_MCP_URL = os.getenv("SECOPS_MCP_URL", "")
 
 SYSTEM_PROMPT = """You are the Case Retrieval Agent for Project Sentinel, a SOC AIOps platform.
 
 Your sole responsibility is to fetch complete case data from Google SecOps and structure it clearly.
 
-When given a case_id, you SHOULD call ALL of these tools in a single turn if possible:
+When given a case_id, call ALL of these tools in order:
 - get_case(case_id)
 - list_alerts(case_id)
 - get_raw_logs(case_id)
@@ -31,21 +31,20 @@ After calling all tools, produce a structured summary with these sections:
 - ALERTS: numbered list of all alerts with rule_name, severity, source_ip, timestamp
 - AFFECTED ASSETS: table of hostname, IP, OS, user, role
 - IOCs IDENTIFIED: list all IPs, file hashes, and domains from the case
-- RAW LOG EXCERPT: first 5 log lines to give analysts a feel for the data
+- RAW LOG EXCERPT: first 5 log lines
 
+When your summary is complete, transfer back to SOCOrchestrator.
 You are READ-ONLY. You NEVER modify or write to any system.""".strip()
 
 
 def _make_tools():
     if SECOPS_MCP_URL:
-        # PROD: Cloud Run MCP server
         from google.adk.tools.mcp_tool import McpToolset
         from google.adk.tools.mcp_tool.mcp_session_manager import SseConnectionParams
         import google.auth
         import google.auth.transport.requests
 
         def _get_id_token() -> str:
-            """Get a Cloud Run identity token for authenticated MCP calls."""
             credentials, _ = google.auth.default()
             auth_req = google.auth.transport.requests.Request()
             credentials.refresh(auth_req)
@@ -61,7 +60,6 @@ def _make_tools():
             )
         ]
     else:
-        # POC: local FunctionTools
         from sentinel.tools.secops_mcp import (
             get_case, list_alerts, get_raw_logs, get_affected_assets,
         )
@@ -80,4 +78,7 @@ case_retrieval_agent = LlmAgent(
     instruction=SYSTEM_PROMPT,
     tools=_make_tools(),
     output_key="case_context",
+    # CRITICAL: prevent lateral transfer to peer agents (RAGPlaybookAgent, ThreatIntelAgent etc.)
+    # Sub-agents must return to SOCOrchestrator after completing their step.
+    disallow_transfer_to_peers=True,
 )

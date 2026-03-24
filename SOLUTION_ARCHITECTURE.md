@@ -404,7 +404,8 @@ Agentic-SecOps/
 |
 +-- sentinel/
     +-- agent.py                    # ADK root_agent entry point
-    +-- schemas.py                  # Pydantic: CaseAnalysis, IoCEnrichment, PlaybookMatch
+    +-- models/                     # Pydantic: CaseAnalysis, IoCEnrichment, PlaybookMatch
+    |   +-- case_models.py
     |
     +-- agents/
     |   +-- orchestrator.py         # SOCOrchestrator  (root LlmAgent)

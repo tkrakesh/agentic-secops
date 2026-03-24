@@ -42,13 +42,21 @@ async def run_parallel_enrichment(case_id: str, case_summary_for_rag: str = ""):
         print(f"[{_now()}] [DONE:STEP:2] SecOps Data Ready.")
         return {"case": case, "alerts": alerts, "logs": logs, "assets": assets}
 
-    # 2. Fetch RAG Playbooks
-    async def fetch_rag():
+    # 2. Fetch RAG Playbooks (Requires case context)
+    async def fetch_rag(case_context=None):
         print(f"[{_now()}] [RUNNING:STEP:3] Querying Playbook RAG...")
-        # If no summary provided, use case_id as fallback query
-        query = case_summary_for_rag if case_summary_for_rag else case_id
+        # If no summary provided, try to extract from case context
+        query = case_summary_for_rag
+        if not query and case_context:
+            title = case_context.get("case", {}).get("title", "")
+            desc = case_context.get("case", {}).get("description", "")
+            query = f"{title} {desc}".strip()
+        
+        # Fallback to case_id if still empty
+        if not query: query = case_id
+        
         playbooks = query_playbook_corpus(query)
-        print(f"[{_now()}] [DONE:STEP:3] Playbook Matches Found.")
+        print(f"[{_now()}] [DONE:STEP:3] Playbook Matches Found for query: '{query[:50]}...'")
         return playbooks
 
     # 3. Fetch Threat Intel
@@ -67,23 +75,32 @@ async def run_parallel_enrichment(case_id: str, case_summary_for_rag: str = ""):
         print(f"[{_now()}] [DONE:STEP:4] Threat Intel Enrichment Complete.")
         return enrichments
 
-    # Run all three enrichment tracks in parallel
-    results = await asyncio.gather(
-        fetch_secops(),
-        fetch_rag(),
-        fetch_ti(),
-        return_exceptions=True
-    )
-    
-    secops_data, rag_data, ti_data = results
-    
-    print(f"[{_now()}] ✅ Parallel Enrichment Complete.")
-    
-    return {
-        "secops_data": secops_data if not isinstance(secops_data, Exception) else f"Error: {secops_data}",
-        "rag_results": rag_data if not isinstance(rag_data, Exception) else f"Error: {rag_data}",
-        "ioc_enrichments": ti_data if not isinstance(ti_data, Exception) else f"Error: {ti_data}"
-    }
+    # Run in a semi-parallel sequence to allow RAG to use Case context
+    try:
+        # Step 2: Fetch Base Case Data first (it's the dependency for a good RAG query)
+        secops_data = await fetch_secops()
+        
+        # Steps 3 & 4: Run RAG and TI in parallel using the retrieved context
+        print(f"[{_now()}] ⚡️ Running RAG and Threat Intel in parallel...")
+        rag_task = fetch_rag(case_context=secops_data)
+        ti_task = fetch_ti()
+        
+        rag_data, ti_data = await asyncio.gather(rag_task, ti_task, return_exceptions=True)
+        
+        print(f"[{_now()}] ✅ Parallel Enrichment Complete.")
+        
+        return {
+            "secops_data": secops_data,
+            "rag_results": rag_data if not isinstance(rag_data, Exception) else f"Error: {rag_data}",
+            "ioc_enrichments": ti_data if not isinstance(ti_data, Exception) else f"Error: {ti_data}"
+        }
+    except Exception as e:
+        print(f"[{_now()}] ❌ Error in parallel enrichment: {e}")
+        return {
+            "secops_data": f"Error: {e}",
+            "rag_results": [],
+            "ioc_enrichments": {}
+        }
 
 if __name__ == "__main__":
     # Test harness

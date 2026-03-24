@@ -1,0 +1,35 @@
+{
+  "case_id": "CASE-006",
+  "title": "DLP - PII Leakage in Application Logs",
+  "severity": "LOW",
+  "status": "OPEN",
+  "created_at": "2026-03-24T11:45:00Z",
+  "source_system": "Google SecOps",
+  "description": "Automated log scanner detected several patterns matching Social Security Numbers (SSN) and Credit Card Numbers (CC) in the cleartext logs of the 'Checkout-API' service in the production environment. This is a violation of the secure logging policy.",
+  "alerts": [
+    {
+      "alert_id": "ALT-9201",
+      "rule_name": "DLP - Cleartext PII in Logs",
+      "severity": "LOW",
+      "source_ip": "10.50.11.22",
+      "destination_ips": ["10.50.11.200"],
+      "timestamp": "2026-03-24T11:45:00Z",
+      "raw_log_ref": "case_006_logs.txt"
+    }
+  ],
+  "affected_assets": [
+    {"hostname": "Checkout-API-Pod-01", "ip": "10.50.11.22", "os": "K8s Container (NodeJS)", "user": "app-service", "role": "Production Checkout Service"},
+    {"hostname": "Log-Collector-Central", "ip": "10.50.11.200", "os": "Elasticsearch", "user": "system", "role": "Central Log Repository"}
+  ],
+  "iocs": {
+    "ips": [],
+    "hashes": [],
+    "domains": []
+  },
+  "timeline": [
+    {"timestamp": "2026-03-24T11:40:00Z", "event": "Application release v2.4.1 deployed to Checkout-API service"},
+    {"timestamp": "2026-03-24T11:45:00Z", "event": "DLP scanner triggers on cleartext patterns in /var/log/checkout.log"}
+  ],
+  "snow_incident_ref": "INC0042408",
+  "assigned_analyst": "Unassigned"
+}

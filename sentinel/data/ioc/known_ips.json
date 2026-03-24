@@ -29,6 +29,26 @@
     "threat_intel_source": "Google Threat Intelligence + VirusTotal",
     "verdict": "Malicious"
   },
+  "193.161.193.99": {
+    "ip": "193.161.193.99",
+    "reputation_score": 95,
+    "classification": "Malicious - DNS Tunneling C2",
+    "isp": "DigitalOcean",
+    "geo_location": "Bulgaria",
+    "tags": ["dns-tunnel", "c2", "data-exfil"],
+    "threat_intel_source": "Google Threat Intelligence",
+    "verdict": "Malicious"
+  },
+  "185.220.101.52": {
+    "ip": "185.220.101.52",
+    "reputation_score": 45,
+    "classification": "Suspicious - Tor Exit Node",
+    "isp": "Zwiebelfreunde e.V.",
+    "geo_location": "Russia",
+    "tags": ["tor", "proxy", "anonymous"],
+    "threat_intel_source": "Tor Project Library",
+    "verdict": "Suspicious"
+  },
   "78.128.113.44": {
     "ip": "78.128.113.44",
     "reputation_score": 95,

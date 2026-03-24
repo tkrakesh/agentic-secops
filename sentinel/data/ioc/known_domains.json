@@ -9,7 +9,17 @@
     "registrar": "Namecheap (privacy protected)",
     "resolved_ips": ["45.33.32.156"],
     "mitre_techniques": ["T1071.001", "T1102"],
-    "tags": ["c2", "lazarus-group", "newly-registered", "apt"],
+    "categories": ["C2 Communication", "Newly Registered Domain"],
+    "threat_intel_source": "Google Threat Intelligence",
+    "verdict": "Malicious"
+  },
+  "research-sync-service.top": {
+    "domain": "research-sync-service.top",
+    "reputation_score": 98,
+    "classification": "Malicious - DNS Tunneling C2",
+    "registrar": "NameCheap",
+    "created_at": "2026-03-22T04:12:00Z",
+    "tags": ["dns-tunnel", "exfil", "newly-registered"],
     "threat_intel_source": "Google Threat Intelligence",
     "verdict": "Malicious"
   },

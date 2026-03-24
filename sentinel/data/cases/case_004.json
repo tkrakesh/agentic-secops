@@ -1,0 +1,46 @@
+{
+  "case_id": "CASE-004",
+  "title": "Data Exfiltration - DNS Tunneling Detected",
+  "severity": "CRITICAL",
+  "status": "OPEN",
+  "created_at": "2026-03-22T10:15:00Z",
+  "source_system": "Google SecOps",
+  "description": "Anomalous DNS traffic patterns detected from a research workstation (WKS-RES-042). The traffic consists of high-frequency TXT record queries to a newly registered non-standard TLD, suggesting DNS tunneling for data exfiltration. Approximately 1.8 GB of data has been transferred over the last 4 hours.",
+  "alerts": [
+    {
+      "alert_id": "ALT-9001",
+      "rule_name": "DNS Tunneling - High Frequency TXT Queries",
+      "severity": "HIGH",
+      "source_ip": "172.16.50.42",
+      "destination_ips": ["8.8.8.8", "1.1.1.1"],
+      "timestamp": "2026-03-22T10:15:00Z",
+      "raw_log_ref": "case_004_logs.txt"
+    },
+    {
+      "alert_id": "ALT-9002",
+      "rule_name": "Network - Excessive Outbound DNS Traffic",
+      "severity": "CRITICAL",
+      "source_ip": "172.16.50.42",
+      "destination_ips": ["8.8.8.8"],
+      "timestamp": "2026-03-22T12:30:00Z",
+      "raw_log_ref": "case_004_logs.txt"
+    }
+  ],
+  "affected_assets": [
+    {"hostname": "WKS-RES-042", "ip": "172.16.50.42", "os": "Ubuntu 22.04 LTS", "user": "a.chen", "role": "Senior Researcher workstation"},
+    {"hostname": "DNS-PRIMARY", "ip": "10.0.0.53", "os": "Linux Bind9", "user": "system", "role": "Internal DNS Resolver"}
+  ],
+  "iocs": {
+    "ips": ["193.161.193.99", "172.16.50.42"],
+    "hashes": ["7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"],
+    "domains": ["research-sync-service.top", "tunnel.research-sync-service.top"]
+  },
+  "timeline": [
+    {"timestamp": "2026-03-22T10:15:00Z", "event": "Initial DNS TXT query anomaly detected from WKS-RES-042"},
+    {"timestamp": "2026-03-22T11:45:00Z", "event": "Threat Intel confirms domain 'research-sync-service.top' was registered <24h ago"},
+    {"timestamp": "2026-03-22T12:30:00Z", "event": "Outbound DNS volume exceeds 1GB; alert upgraded to CRITICAL"},
+    {"timestamp": "2026-03-22T12:45:00Z", "event": "Case opened for forensic investigation and containment"}
+  ],
+  "snow_incident_ref": "INC0042105",
+  "assigned_analyst": "Unassigned"
+}

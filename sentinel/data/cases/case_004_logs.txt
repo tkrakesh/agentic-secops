@@ -1,0 +1,6 @@
+[2026-03-22 10:15:01] DNS QUERY: WKS-RES-042 -> 8.8.8.8 [TXT] aGVsbG8td29ybGQ=.tunnel.research-sync-service.top
+[2026-03-22 10:15:05] DNS QUERY: WKS-RES-042 -> 8.8.8.8 [TXT] dGhpcy1pcy1hLXRlc3Q=.tunnel.research-sync-service.top
+[2026-03-22 10:15:10] DNS QUERY: WKS-RES-042 -> 8.8.8.8 [TXT] d2UtaGF2ZS1hLWxlYWs=.tunnel.research-sync-service.top
+...
+[2026-03-22 12:30:15] MONITOR: Excessive DNS TXT volume detected. 1.2GB egressed in 120min.
+[2026-03-22 12:30:20] ALERT: [CRITICAL] Data Exfiltration via DNS Tunneling suspected.

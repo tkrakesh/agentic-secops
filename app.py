@@ -196,6 +196,30 @@ CASES = {
         "ts": "2026-03-20T22:08:55Z",
         "alerts": 4,
     },
+    "CASE-004": {
+        "label": "🔴 CASE-004 · CRITICAL — DNS Tunneling (Data Exfil)",
+        "severity": "CRITICAL",
+        "badge": "badge-critical",
+        "desc": "1.8 GB DNS TXT tunneling to research-sync-service.top from WKS-RES-042",
+        "ts": "2026-03-22T10:15:00Z",
+        "alerts": 2,
+    },
+    "CASE-005": {
+        "label": "🟡 CASE-005 · MEDIUM — Suspicious Login (Tor/Russia)",
+        "severity": "MEDIUM",
+        "badge": "badge-medium",
+        "desc": "Successful login from Tor exit node (185.220.101.52) involving MFA fatigue",
+        "ts": "2026-03-24T05:22:11Z",
+        "alerts": 2,
+    },
+    "CASE-006": {
+        "label": "🔵 CASE-006 · LOW — DLP PII Leakage (Logs)",
+        "severity": "LOW",
+        "badge": "badge-low",
+        "desc": "SSN and Credit Card numbers detected in cleartext in Checkout-API logs",
+        "ts": "2026-03-24T11:45:00Z",
+        "alerts": 1,
+    },
 }
 
 PIPELINE_STEPS = [

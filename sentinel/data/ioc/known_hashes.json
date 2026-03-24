@@ -66,5 +66,17 @@
     "tags": ["powershell", "loader", "encoded", "cobalt-strike", "ransomware"],
     "threat_intel_source": "VirusTotal",
     "verdict": "Malicious"
+  },
+  "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069": {
+    "hash": "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+    "hash_type": "SHA256",
+    "file_name": "iodine_tunnel_client.sys",
+    "reputation_score": 94,
+    "classification": "Malicious - DNS Tunneling Tool",
+    "malware_family": "Iodine Tunneling Suite",
+    "campaign": "Research Data Exfil - Q1 2026",
+    "tags": ["dns-tunnel", "exfil", "iodine"],
+    "threat_intel_source": "Google Threat Intelligence",
+    "verdict": "Malicious"
   }
 }

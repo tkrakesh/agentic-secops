@@ -1,0 +1,45 @@
+{
+  "case_id": "CASE-005",
+  "title": "Suspicious Login from Unusual Location",
+  "severity": "MEDIUM",
+  "status": "OPEN",
+  "created_at": "2026-03-24T05:22:11Z",
+  "source_system": "Google SecOps",
+  "description": "Successful login detected for user 'd.miller' from a known Tor exit node (185.220.101.52) in a geographic location (Russia) never previously associated with this account. MFA was bypassed using a 'Push Fatigue' technique (multiple denied prompts followed by one acceptance).",
+  "alerts": [
+    {
+      "alert_id": "ALT-9101",
+      "rule_name": "IAM - Login from Tor Exit Node",
+      "severity": "MEDIUM",
+      "source_ip": "185.220.101.52",
+      "destination_ips": ["N/A"],
+      "timestamp": "2026-03-24T05:22:11Z",
+      "raw_log_ref": "case_005_logs.txt"
+    },
+    {
+      "alert_id": "ALT-9102",
+      "rule_name": "MFA - Potential Push Fatigue Attack",
+      "severity": "MEDIUM",
+      "source_ip": "185.220.101.52",
+      "destination_ips": ["N/A"],
+      "timestamp": "2026-03-24T05:21:45Z",
+      "raw_log_ref": "case_005_logs.txt"
+    }
+  ],
+  "affected_assets": [
+    {"hostname": "Azure AD / Office 365", "ip": "N/A", "os": "Cloud Identity", "user": "d.miller", "role": "Marketing Specialist"}
+  ],
+  "iocs": {
+    "ips": ["185.220.101.52"],
+    "hashes": [],
+    "domains": []
+  },
+  "timeline": [
+    {"timestamp": "2026-03-24T05:18:22Z", "event": "First MFA prompt for d.miller — Denied"},
+    {"timestamp": "2026-03-24T05:19:10Z", "event": "Second MFA prompt for d.miller — Denied"},
+    {"timestamp": "2026-03-24T05:21:45Z", "event": "Third MFA prompt — Approved"},
+    {"timestamp": "2026-03-24T05:22:11Z", "event": "Successful login established from 185.220.101.52 (Tor Exit)"}
+  ],
+  "snow_incident_ref": "INC0042331",
+  "assigned_analyst": "Unassigned"
+}

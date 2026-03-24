@@ -27,6 +27,21 @@
       {"step": 6, "action": "Block cobalt-c2.badactor.net at DNS sinkhole", "target": "SRV-DNS-INT / DNS Firewall", "duration_seconds": 0.9, "status": "success"},
       {"step": 7, "action": "Initiate VM snapshots — WKS-DEV-021, 023, 025", "target": "vSphere API - DEV-CLUSTER", "duration_seconds": 15.3, "status": "success"},
       {"step": 8, "action": "Open P0 incident bridge — CIRT Escalation", "target": "PagerDuty / Bridge Line", "duration_seconds": 0.4, "status": "success"}
+    ],
+    "PB-042": [
+      {"step": 1, "action": "Add research-sync-service.top to DNS sinkhole", "target": "SRV-DNS-INT / DNS Firewall", "duration_seconds": 1.2, "status": "success"},
+      {"step": 2, "action": "Block 193.161.193.99 at perimeter firewall", "target": "Palo Alto Firewall", "duration_seconds": 0.8, "status": "success"},
+      {"step": 3, "action": "Isolate WKS-RES-042 (172.16.50.42)", "target": "CrowdStrike Falcon EDR", "duration_seconds": 2.1, "status": "success"},
+      {"step": 4, "action": "Initiate PCAP capture on Research VLAN", "target": "Network Tap", "duration_seconds": 0.5, "status": "success"}
+    ],
+    "PB-015": [
+      {"step": 1, "action": "Disable account d.miller in Azure AD", "target": "Azure IAM API", "duration_seconds": 1.1, "status": "success"},
+      {"step": 2, "action": "Revoke all active O365 sessions for d.miller", "target": "MS365 API", "duration_seconds": 0.9, "status": "success"},
+      {"step": 3, "action": "Force MFA re-registration", "target": "Duo Security API", "duration_seconds": 0.4, "status": "success"}
+    ],
+    "PB-008": [
+      {"step": 1, "action": "Trigger log scrubbing for index 'check-api-*'", "target": "Log-Scrubber-Central", "duration_seconds": 5.4, "status": "success"},
+      {"step": 2, "action": "Rotate service-account secrets", "target": "HashiCorp Vault", "duration_seconds": 1.2, "status": "success"}
     ]
   }
 }

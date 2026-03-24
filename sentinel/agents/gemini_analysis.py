@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 from google.adk.agents import LlmAgent
 
-MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.5-flash")
+MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.0-flash")
 
 ANALYSIS_PROMPT = """You are a senior SOC analyst AI embedded in Project Sentinel.
 

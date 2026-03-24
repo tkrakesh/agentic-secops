@@ -203,7 +203,7 @@ PIPELINE_STEPS = [
     "Data Retrieval",
     "Playbook RAG",
     "Threat Intel",
-    "Gemini Analysis",
+    "Agent Analysis",
     "Recommendation",
     "HITL Approval",
     "Action Execution",
@@ -351,9 +351,23 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-# ── Main area top: progress bar ────────────────────────────────────────────────
+if "active_steps" not in st.session_state:
+    st.session_state["active_steps"] = set()
+
+if "session_service" not in st.session_state:
+    from google.adk.sessions import InMemorySessionService
+    st.session_state["session_service"] = InMemorySessionService()
+
+# Main area top: progress bar
 st.markdown("# 🛡️ Project Sentinel")
 st.markdown(f'<p style="color:#64748b;margin-top:-14px">Agentic AIOps · Security Operations Centre · {case_id}</p>', unsafe_allow_html=True)
+
+# Metrics Ribbon
+# ... (omitted for brevity in replace tool, but it's there)
+# (Actually, I need to make sure I don't delete the metrics ribbon. 
+# I'll use multiple chunks or a more precise range)
+
+# Check line 355 for the start of the progress area
 
 # Metrics Ribbon
 st.markdown(f"""
@@ -383,7 +397,7 @@ for i, (col, name) in enumerate(zip(cols, PIPELINE_STEPS)):
     step_num = i + 1
     if step > step_num:
         icon, cls = "✓", "step-done"
-    elif step == step_num:
+    elif step == step_num or step_num in st.session_state.get("active_steps", set()):
         icon, cls = '<span class="spinning">⟳</span>', "step-running"
     else:
         icon, cls = "○", "step-pending"
@@ -429,14 +443,20 @@ with main_col:
             async def run_pipeline_to_hitl():
                 with st.status("🤖 Running ADK Pipeline...", expanded=True) as status:
                     _audit("Sentinel Orchestrator (AI)", f"Pipeline started for {case_id}", "Initiated")
-                    async for event in run_adk_pipeline(case_id, session_id, st.session_state["analyst_name"]):
+                    async for event in run_adk_pipeline(case_id, session_id, st.session_state["analyst_name"], st.session_state["session_service"]):
                         if event["type"] == "step":
                             st.session_state["pipeline_step"] = event["step"]
                             if event["step"] == 2: status.update(label="🔍 Fetching case data...", state="running")
                             elif event["step"] == 3: status.update(label="📚 Querying RAG Playbooks...", state="running")
                             elif event["step"] == 4: status.update(label="🔬 Enriching Threat Intel...", state="running")
-                            elif event["step"] == 5: status.update(label="🧠 Gemini Analysing Case...", state="running")
+                            elif event["step"] == 5: status.update(label="🧠 Agent Analysing Case...", state="running")
                             elif event["step"] == 6: status.update(label="✅ Recommendation Ready", state="complete")
+                        elif event["type"] == "active_steps":
+                            st.session_state["active_steps"] = event["steps"]
+                        elif event["type"] == "active_step_add":
+                            st.session_state["active_steps"].add(event["step"])
+                        elif event["type"] == "active_step_remove":
+                            st.session_state["active_steps"].discard(event["step"])
                         elif event["type"] == "log":
                             _log(event["agent"], event["message"])
                             st.write(f"**{event['agent']}**: {event['message']}")
@@ -445,6 +465,7 @@ with main_col:
                         elif event["type"] == "hitl":
                             st.session_state["hitl_state"] = event["state"]
                             st.session_state["pipeline_step"] = 7
+                            st.session_state["active_steps"] = set()
                             _audit("Sentinel Orchestrator (AI)", "Pipeline paused for HITL approval", "AWAITING_ANALYST")
                             break
 
@@ -547,7 +568,7 @@ with main_col:
         ioc_enrichments = analysis.get("ioc_enrichments", [])
 
         st.markdown("---")
-        st.markdown("## 🧠 Gemini Analysis — SOC Case Report")
+        st.markdown("## 🧠 Agent Analysis — SOC Case Report")
 
         # Main analysis card
         mitre_html = " ".join(
@@ -725,7 +746,7 @@ with main_col:
 
             async def run_resume_pipeline():
                 with st.status("⚙️ Resuming ADK Pipeline...", expanded=True) as status:
-                    async for event in resume_adk_pipeline(session_id, analyst, decision, analysis, case_id, override, feedback):
+                    async for event in resume_adk_pipeline(session_id, analyst, decision, analysis, case_id, st.session_state["session_service"], override, feedback):
                         if event["type"] == "log":
                             _log(event["agent"], event["message"])
                             st.write(f"**{event['agent']}**: {event['message']}")

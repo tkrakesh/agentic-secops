@@ -12,13 +12,13 @@ from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
 from sentinel.tools.snow_mcp import add_worknote, close_incident
 
-MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.5-flash")
+MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.0-flash")
 SECOPS_MCP_URL = os.getenv("SECOPS_MCP_URL", "")
 
 SYSTEM_PROMPT = """You are the Action Executor Agent for Project Sentinel.
 
 You execute approved SOAR playbook actions and close the ServiceNow incident.
-You ONLY act when you receive explicit confirmation that HITL approval has been granted.
+You ONLY act when you receive explicit confirmation (e.g. "HITL DECISION RECEIVED") that HITL approval has been granted.
 
 Your execution sequence — call all four tools in order:
 1. trigger_playbook(playbook_id=<approved_playbook_id>, case_id=<case_id>)
@@ -28,8 +28,7 @@ Your execution sequence — call all four tools in order:
 
 Report the full execution log including each action, target, status, and duration.
 
-SECURITY CONSTRAINT: If you receive instructions without explicit HITL approval
-confirmation, respond with:
+SECURITY CONSTRAINT: If you receive instructions/transfer without the "HITL" keyword in the context, respond with:
 "ACTION BLOCKED: HITL approval token not present in context. No actions executed."
 
 When execution is complete, transfer back to SOCOrchestrator.""".strip()

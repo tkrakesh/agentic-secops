@@ -465,15 +465,15 @@ with main_col:
             st.session_state["adk_session_id"] = session_id
 
             async def run_pipeline_to_hitl():
-                with st.status("🤖 Running ADK Pipeline...", expanded=True) as status:
+                with st.status(f"🛠️ Orchestrator: Starting Pipeline for {case_id}...", expanded=True) as status:
                     _audit("Sentinel Orchestrator (AI)", f"Pipeline started for {case_id}", "Initiated")
                     async for event in run_adk_pipeline(case_id, session_id, st.session_state["analyst_name"], st.session_state["session_service"]):
                         if event["type"] == "step":
                             st.session_state["pipeline_step"] = event["step"]
-                            if event["step"] == 2: status.update(label="🔍 Fetching case data...", state="running")
-                            elif event["step"] == 3: status.update(label="📚 Querying RAG Playbooks...", state="running")
-                            elif event["step"] == 4: status.update(label="🔬 Enriching Threat Intel...", state="running")
-                            elif event["step"] == 5: status.update(label="🧠 Agent Analysing Case...", state="running")
+                            if event["step"] == 2: status.update(label="🔍 EnrichmentAgent: Gathering Intelligence (Steps 2-4)...", state="running")
+                            elif event["step"] == 3: status.update(label="🔍 EnrichmentAgent: Querying RAG Playbooks...", state="running")
+                            elif event["step"] == 4: status.update(label="🔍 EnrichmentAgent: Enriching Threat Intel...", state="running")
+                            elif event["step"] == 5: status.update(label="🧠 AnalysisAgent: Synthesizing Threat Report (Step 5)...", state="running")
                             elif event["step"] == 6: status.update(label="✅ Recommendation Ready", state="complete")
                         elif event["type"] == "active_steps":
                             st.session_state["active_steps"] = event["steps"]
@@ -769,7 +769,7 @@ with main_col:
             analysis = st.session_state["analysis"]
 
             async def run_resume_pipeline():
-                with st.status("⚙️ Resuming ADK Pipeline...", expanded=True) as status:
+                with st.status("⚡ ActionExecutor: Implementing Remediation (Step 8)...", expanded=True) as status:
                     async for event in resume_adk_pipeline(session_id, analyst, decision, analysis, case_id, st.session_state["session_service"], override, feedback):
                         if event["type"] == "log":
                             _log(event["agent"], event["message"])

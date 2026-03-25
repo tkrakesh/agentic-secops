@@ -50,6 +50,8 @@ OUTPUT — produce a single raw JSON object with EXACTLY these fields:
   "recommended_playbook_name": "Credential Compromise Response",
   "playbook_rationale": "1-2 sentences why this playbook over alternatives",
   "confidence_score": 0.91,
+  "recommend_auto_approval": false,
+  "reasoning_for_recommendation": "High severity lateral movement requires manual investigation and containment verification.",
   "ioc_enrichments": [
     {
       "indicator": "45.33.32.156",
@@ -73,6 +75,13 @@ OUTPUT — produce a single raw JSON object with EXACTLY these fields:
 
 severity must be exactly one of: Critical, High, Medium, Low
 confidence_score must be a float between 0.0 and 1.0
+
+AUTO-APPROVAL POLICY:
+- recommend_auto_approval should be TRUE only if:
+  1. Severity is Low or Medium.
+  2. The remediation (e.g. log scrubbing, IoC blocking) is low-impact/reversible.
+  3. You have >90% confidence in the playbook match.
+- For CASE-006 (DLP), recommend_auto_approval = true because log scrubbing is a safe, standard procedure.
 
 Output ONLY the raw JSON object. No preamble, no markdown fences, no explanation.
 After outputting the JSON, transfer back to SOCOrchestrator."""

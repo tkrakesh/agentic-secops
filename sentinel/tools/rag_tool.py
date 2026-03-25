@@ -72,7 +72,8 @@ _DOMAIN_BOOST_TERMS = {
     "tunnelling", "exfiltration", "c2", "outbound", "bypass", "dns", "beacon",
     "ransomware", "precursor", "strike", "cobalt", "powershell", "encoded",
     "phishing", "malicious", "links", "malware", "insider", "threat", "privilege",
-    "misuse", "data", "compromise",
+    "misuse", "data", "compromise", "policy", "compliance", "tls", "ssl",
+    "certificate", "insecure", "configuration",
 }
 
 def _init_tf_idf():

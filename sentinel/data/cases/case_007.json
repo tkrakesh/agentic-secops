@@ -1,0 +1,46 @@
+{
+  "case_id": "CASE-007",
+  "title": "Potential DNS Exfiltration Activity - JDOE on WIN10-8YB72USR",
+  "severity": "HIGH",
+  "status": "OPEN",
+  "created_at": "2026-03-24T10:34:22Z",
+  "source_system": "Google SecOps",
+  "description": "On November 13, 2025, a security alert was triggered, indicating a potential data exfiltration attempt from the workstation WIN10-8YB72USR, associated with the user JDOE. The system detected a suspicious, heavily obfuscated PowerShell command designed to make a specific type of DNS request (TXT record) to the external domain `mediareleaseupdates.com`. This technique is commonly used by attackers to secretly remove data or communicate with a command-and-control (C2) server, bypassing standard network security monitoring. Threat intelligence analysis confirmed that the destination IP address, 166.88.2.90, is malicious and associated with the threat actor group UNC6384 and malware SOGU.SEC. In response to the high-priority threat, the affected host, WIN10-8YB72USR, was automatically contained to prevent any further malicious activity or data loss.",
+  "alerts": [
+    {
+      "alert_id": "ALT-1499469",
+      "rule_name": "Potential DNS Exfiltration Activity",
+      "severity": "HIGH",
+      "source_ip": "192.168.1.24",
+      "destination_ips": ["166.88.2.90"],
+      "timestamp": "2026-03-24T10:34:22Z",
+      "raw_log_ref": "case_007_logs.txt"
+    }
+  ],
+  "affected_assets": [
+    {
+      "hostname": "WIN10-8YB72USR",
+      "ip": "192.168.1.24",
+      "os": "Windows 10",
+      "user": "JDOE",
+      "role": "Client Workstation"
+    }
+  ],
+  "iocs": {
+    "ips": ["166.88.2.90"],
+    "hashes": [],
+    "domains": ["mediareleaseupdates.com"]
+  },
+  "timeline": [
+    {
+      "timestamp": "2026-03-24T10:30:15Z",
+      "event": "Suspicious PowerShell activity detected on host WIN10-8YB72USR"
+    },
+    {
+      "timestamp": "2026-03-24T10:34:22Z",
+      "event": "High-priority DNS exfiltration alert triggered — Case opened"
+    }
+  ],
+  "snow_incident_ref": "INC0041901",
+  "assigned_analyst": "Unassigned"
+}

@@ -9,6 +9,7 @@ reducing latency in the 9-step pipeline.
 import asyncio
 import os
 import json
+from pathlib import Path
 from datetime import datetime, timezone
 
 # Import existing tool functions
@@ -62,18 +63,32 @@ async def run_parallel_enrichment(case_id: str, case_summary_for_rag: str = ""):
     # 3. Fetch Threat Intel
     async def fetch_ti():
         print(f"[{_now()}] [RUNNING:STEP:4] Enriching Threat Intel...")
-        # We need the IoCs first. For POC, we can pre-fetch them or assume they are in the case file.
-        # To be truly parallel with step 2, we load the case fixture locally if it exists.
-        from runner import _load_case_data
-        cd = _load_case_data(case_id)
-        iocs = cd.get("iocs", {})
-        enrichments = bulk_enrich_iocs(
-            ips=iocs.get("ips", []),
-            hashes=iocs.get("hashes", []),
-            domains=iocs.get("domains", [])
-        )
-        print(f"[{_now()}] [DONE:STEP:4] Threat Intel Enrichment Complete.")
-        return enrichments
+        try:
+            # Avoid circular import with runner.py
+            cases_dir = Path(__file__).parent.parent / "data" / "cases"
+            fname = case_id.lower().replace("-", "_") + ".json"
+            case_path = cases_dir / fname
+            
+            print(f"[{_now()}] DEBUG: Loading TI case data from {case_path}")
+            if case_path.exists():
+                with open(case_path, encoding="utf-8") as f:
+                    cd = json.load(f)
+                iocs = cd.get("iocs", {})
+                print(f"[{_now()}] DEBUG: Found IoCs: {iocs}")
+                enrichments = bulk_enrich_iocs(
+                    ips=iocs.get("ips", []),
+                    hashes=iocs.get("hashes", []),
+                    domains=iocs.get("domains", [])
+                )
+            else:
+                print(f"[{_now()}] DEBUG: Case file not found for TI enrichment")
+                enrichments = {"ips": [], "hashes": [], "domains": []}
+                
+            print(f"[{_now()}] [DONE:STEP:4] Threat Intel Enrichment Complete.")
+            return enrichments
+        except Exception as e:
+            print(f"[{_now()}] DEBUG: Error in fetch_ti: {e}")
+            return {"ips": [], "hashes": [], "domains": []}
 
     # Run in a semi-parallel sequence to allow RAG to use Case context
     try:

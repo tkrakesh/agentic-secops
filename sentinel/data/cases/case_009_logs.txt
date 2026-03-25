@@ -1,0 +1,5 @@
+[2026-03-25 14:30:00] SCANNER: Initiated TLS handshake with 10.60.12.44:443
+[2026-03-25 14:30:01] INFO: Server responded with ServerHello (TLS 1.1)
+[2026-03-25 14:30:01] WARN: TLS 1.1 is deprecated and violates Security Policy SEC-042
+[2026-03-25 14:30:02] INFO: Cipher Suite: TLS_RSA_WITH_AES_256_CBC_SHA
+[2026-03-25 14:30:05] ALERT: Compliance violation reported for HR-Portal-Dev-Svr

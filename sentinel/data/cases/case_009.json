@@ -1,0 +1,35 @@
+{
+  "case_id": "CASE-009",
+  "title": "Insecure TLS Cipher Negotiation (Policy Violation)",
+  "severity": "LOW",
+  "status": "OPEN",
+  "created_at": "2026-03-25T14:30:00Z",
+  "source_system": "Vulnerability Scanner",
+  "description": "Internal monitoring detected that the service 'HR-Portal-Dev' is negotiating TLS 1.0/1.1 connections with a legacy middleware agent. Organizational policy requires TLS 1.2+ for all internal services. This is a non-critical compliance finding in a non-production environment.",
+  "alerts": [
+    {
+      "alert_id": "ALT-1009",
+      "rule_name": "Insecure Protocol Detected",
+      "severity": "LOW",
+      "source_ip": "10.60.12.44",
+      "destination_ips": ["10.60.12.100"],
+      "timestamp": "2026-03-25T14:30:00Z",
+      "raw_log_ref": "case_009_logs.txt"
+    }
+  ],
+  "affected_assets": [
+    {"hostname": "HR-Portal-Dev-Svr", "ip": "10.60.12.44", "os": "Ubuntu 22.04 (Dev)", "user": "hr-dev-team", "role": "Internal Development Portal"},
+    {"hostname": "Legacy-Monitor-Agent", "ip": "10.60.12.100", "os": "Windows Server 2012 R2", "user": "system", "role": "Legacy Monitoring Node"}
+  ],
+  "iocs": {
+    "ips": ["10.60.12.100"],
+    "hashes": [],
+    "domains": []
+  },
+  "timeline": [
+    {"timestamp": "2026-03-25T14:25:00Z", "event": "Periodic compliance scan initiated by Qualys agent"},
+    {"timestamp": "2026-03-25T14:30:00Z", "event": "Alert generated: Insecure TLS 1.1 handshake detected"}
+  ],
+  "snow_incident_ref": "INC0099123",
+  "assigned_analyst": "Unassigned"
+}

@@ -90,6 +90,18 @@ def _unwrap_tool_response(resp: dict, prefer_list: bool = False, tool_name: str 
         return [val] if prefer_list and not isinstance(val, list) else val
     return [resp] if prefer_list else resp
 
+def _check_auto_approve(case_id, analysis_data, case_data):
+    """Unified logic for agent-driven and policy-based auto-approval."""
+    agent_recommends = analysis_data.get("recommend_auto_approval", False)
+    
+    # Fallback for Demo: Any LOW/MEDIUM severity case or CASE-006/CASE-009
+    analysis_sev = analysis_data.get("severity", "").upper()
+    raw_sev = case_data["raw_case"].get("severity", "HIGH").upper()
+    current_sev = (analysis_sev or raw_sev)
+    
+    should_auto = agent_recommends or ("LOW" in current_sev) or ("MEDIUM" in current_sev) or (case_id in ["CASE-006", "CASE-009"])
+    return should_auto, current_sev, analysis_data.get("reasoning_for_recommendation", "N/A")
+
 async def run_adk_pipeline(
     case_id: str,
     session_id: str,
@@ -125,6 +137,7 @@ async def run_adk_pipeline(
     ioc_data = {"ips": [], "hashes": [], "domains": []}
     analysis_emitted = False
     hitl_emitted = False
+    last_analysis_json = None
 
     query = (
         f"Please analyse case {case_id} end-to-end following your pipeline sequence. "
@@ -151,7 +164,6 @@ async def run_adk_pipeline(
                     name = part.function_call.name
                     if name != "transfer_to_agent":
                         yield {"type": "log", "agent": author, "message": f"→ invoking tool: {name}(...)"}
-                        await asyncio.sleep(yield_delay)
 
                 elif part.function_response:
                     name = part.function_response.name
@@ -180,6 +192,7 @@ async def run_adk_pipeline(
                     if ua in ("SOCORCHESTRATOR", "THREATANALYSTAGENT"):
                         extracted = _extract_json(text)
                         if extracted and "recommended_playbook_id" in extracted:
+                            last_analysis_json = extracted
                             yield {"type": "state", "key": "analysis", "data": extracted}
                             if not analysis_emitted:
                                 yield {"type": "step", "step": 6}
@@ -188,9 +201,15 @@ async def run_adk_pipeline(
 
                         if "AWAITING_HITL_APPROVAL" in text and not hitl_emitted:
                             hitl_emitted = True
-                            severity = case_data["raw_case"].get("severity", "HIGH").upper()
-                            yield {"type": "log", "agent": "ORCHESTRATOR", "message": f"Recommendation ready — awaiting HITL approval ({severity})"}
-                            yield {"type": "hitl", "state": "awaiting"}
+                            should_auto, current_sev, reasoning = _check_auto_approve(case_id, last_analysis_json or {}, case_data)
+                            
+                            if should_auto:
+                                msg = f"✓ Auto-approving recommendation. Agent reasoning: {reasoning}"
+                                yield {"type": "log", "agent": "ORCHESTRATOR", "message": msg}
+                                yield {"type": "hitl", "state": "auto_approved"}
+                            else:
+                                yield {"type": "log", "agent": "ORCHESTRATOR", "message": f"Recommendation ready — awaiting HITL approval ({current_sev})"}
+                                yield {"type": "hitl", "state": "awaiting"}
                             return
 
                         if not extracted and "AWAITING" not in text and "transfer" not in text.lower():
@@ -214,7 +233,16 @@ async def run_adk_pipeline(
             if data:
                 yield {"type": "state", "key": "analysis", "data": data}
                 yield {"type": "step", "step": 6}
-                yield {"type": "log", "agent": "SOCOrchestrator", "message": "✓ Analysis retrieved from session state."}
+                should_auto, current_sev, reasoning = _check_auto_approve(case_id, data, case_data)
+                if should_auto:
+                    msg = f"✓ Auto-approving recommendation. Agent reasoning: {reasoning}"
+                    yield {"type": "log", "agent": "ORCHESTRATOR", "message": msg}
+                    yield {"type": "hitl", "state": "auto_approved"}
+                else:
+                    yield {"type": "hitl", "state": "awaiting"}
+            else:
+                yield {"type": "hitl", "state": "awaiting"}
+        else:
             yield {"type": "hitl", "state": "awaiting"}
 
 async def resume_adk_pipeline(
@@ -231,6 +259,7 @@ async def resume_adk_pipeline(
     Resume the pipeline after a HITL decision.
     Bypasses the Orchestrator to avoid loops and resumes directly with ActionExecutorAgent.
     """
+    yield {"type": "log", "agent": "SYSTEM", "message": f"DEBUG: Entering resume_adk_pipeline with decision: {decision}"}
     from sentinel.agents.action_executor import action_executor_agent
     runner = Runner(
         app_name="sentinel-soc",
@@ -240,7 +269,7 @@ async def resume_adk_pipeline(
 
     raw_case = _load_case_data(case_id)
     snow_ref = raw_case.get("snow_incident_ref", "INC0000000")
-    if decision == "Accepted":
+    if decision in ("Accepted", "Auto-Approved"):
         msg = f"HITL DECISION RECEIVED: Analyst {analyst_name} has ACCEPTED recommendation.\nApproved playbook: {analysis.get('recommended_playbook_id')}.\nServiceNow Incident: {snow_ref}.\nActionExecutorAgent: proceed with Step 8 execution now."
     elif decision == "override":
         msg = f"HITL DECISION RECEIVED: Analyst {analyst_name} has OVERRIDDEN with playbook {override_playbook}.\nServiceNow Incident: {snow_ref}.\nActionExecutorAgent: execute the override playbook now."
@@ -300,10 +329,9 @@ async def resume_adk_pipeline(
                         if extracted and "recommended_playbook_id" in extracted:
                             yield {"type": "state", "key": "analysis", "data": extracted}
                             yield {"type": "log", "agent": "ThreatAnalystAgent", "message": "✓ Re-analysis complete."}
-                        if "AWAITING_HITL_APPROVAL" in text:
-                            yield {"type": "log", "agent": "SOCOrchestrator", "message": "Revised recommendation ready — awaiting HITL approval"}
-                            yield {"type": "hitl", "state": "awaiting"}
-                            return
+                        # In resume mode, we don't want to revert to hitl: awaiting 
+                        # unless the agent expressly says so via a specific tool or rejection flow.
+                        pass
     except Exception as e:
         yield {"type": "log", "agent": "SYSTEM", "message": f"⚠️ Resume Error: {str(e)[:200]}"}
 

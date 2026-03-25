@@ -220,6 +220,30 @@ CASES = {
         "ts": "2026-03-24T11:45:00Z",
         "alerts": 1,
     },
+    "CASE-007": {
+        "label": "🔴 CASE-007 · HIGH — Potential DNS Exfiltration Activity",
+        "severity": "HIGH",
+        "badge": "badge-high",
+        "desc": "Suspicious PowerShell command making DNS TXT requests to mediareleaseupdates.com from WIN10-8YB72USR (User: JDOE)",
+        "ts": "2026-03-24T10:34:22Z",
+        "alerts": 1,
+    },
+    "CASE-008": {
+        "label": "🔴 CASE-008 · CRITICAL — Brute Force + Suspicious CertUtil",
+        "severity": "CRITICAL",
+        "badge": "badge-critical",
+        "desc": "Multi-stage attack targeting WIN10-8YB72USR; brute force leading to malware execution via certutil",
+        "ts": "2026-03-24T12:51:19Z",
+        "alerts": 2,
+    },
+    "CASE-009": {
+        "label": "🔵 CASE-009 · LOW — Insecure TLS (Policy Violation)",
+        "severity": "LOW",
+        "badge": "badge-low",
+        "desc": "Internal Dev server negotiating deprecated TLS 1.0/1.1 protocols",
+        "ts": "2026-03-25T14:30:00Z",
+        "alerts": 1,
+    },
 }
 
 PIPELINE_STEPS = [
@@ -240,6 +264,8 @@ ALL_PLAYBOOKS = [
     ("PB-012", "Ransomware Isolation Protocol"),
     ("PB-019", "Phishing Response"),
     ("PB-024", "Insider Threat Investigation"),
+    ("PB-042", "DNS Tunneling & Data Exfiltration Response"),
+    ("PB-043", "Ransomware Staging & Tooling Defense"),
 ]
 
 AGENT_COLORS = {
@@ -354,7 +380,12 @@ with st.sidebar:
         for k in ["pipeline_step","case_data","rag_results","ioc_data","analysis","execution","closure",
                   "agent_log","audit_trail","hitl_state","hitl_decision","override_playbook",
                   "analyst_feedback","error","running"]:
-            st.session_state[k] = 0 if k == "pipeline_step" else ([] if k in ["agent_log","audit_trail"] else ("none" if k == "hitl_state" else (False if k == "running" else None)))
+            if k == "pipeline_step": st.session_state[k] = 0
+            elif k in ["agent_log","audit_trail"]: st.session_state[k] = []
+            elif k == "hitl_state": st.session_state[k] = "none"
+            elif k in ["analysis","case_data","execution","closure"]: st.session_state[k] = {}
+            elif k == "running": st.session_state[k] = False
+            else: st.session_state[k] = None
         st.session_state["running"] = True
         st.rerun()
 
@@ -394,21 +425,25 @@ st.markdown(f'<p style="color:#64748b;margin-top:-14px">Agentic AIOps · Securit
 # Check line 355 for the start of the progress area
 
 # Metrics Ribbon
+active_criticals = sum(1 for c in CASES.values() if c["severity"] == "CRITICAL")
+avg_containment = "2m 14s"
+auto_remed_pct = 92 if st.session_state["pipeline_step"] >= 9 else 84
+
 st.markdown(f"""
 <div class="metrics-container">
   <div class="metric-card">
     <div class="metric-label">Avg. Containment</div>
-    <div class="metric-value">2m 14s</div>
+    <div class="metric-value">{avg_containment}</div>
     <div class="metric-delta">↑ 12% vs last week</div>
   </div>
   <div class="metric-card">
     <div class="metric-label">Active Criticals</div>
-    <div class="metric-value">03</div>
+    <div class="metric-value">{active_criticals:02d}</div>
     <div class="metric-delta" style="color:#ef4444">High Alert</div>
   </div>
   <div class="metric-card">
     <div class="metric-label">Auto-Remediation</div>
-    <div class="metric-value">84%</div>
+    <div class="metric-value">{auto_remed_pct}%</div>
     <div class="metric-delta">Target: 90%</div>
   </div>
 </div>
@@ -488,9 +523,14 @@ with main_col:
                             st.session_state[event["key"]] = event["data"]
                         elif event["type"] == "hitl":
                             st.session_state["hitl_state"] = event["state"]
-                            st.session_state["pipeline_step"] = 7
                             st.session_state["active_steps"] = set()
-                            _audit("Sentinel Orchestrator (AI)", "Pipeline paused for HITL approval", "AWAITING_ANALYST")
+                            if event["state"] == "awaiting":
+                                st.session_state["pipeline_step"] = 7
+                                _audit("Sentinel Orchestrator (AI)", "Pipeline paused for HITL approval", "AWAITING_ANALYST")
+                            else:
+                                # For auto_approved, we keep step at 6 or move to a transitioning state
+                                # The auto_approved block below will jump it to 8.
+                                pass 
                             break
 
             asyncio.run(run_pipeline_to_hitl())
@@ -649,7 +689,7 @@ with main_col:
         if hitl == "auto_approved":
             st.session_state["hitl_state"] = "approved"
             st.session_state["hitl_decision"] = "Auto-Approved"
-            _log("ORCHESTRATOR", f"HITL: Auto-Approved by System (High Confidence, Low Severity)")
+            _log("ORCHESTRATOR", "Agent recommended auto-approval. Proceeding to execution.")
             _audit(st.session_state["analyst_name"], f"HITL: Auto-Approved {analysis.get('recommended_playbook_id')}", "Auto-Approved")
             from sentinel.tools.snow_mcp import add_worknote
             raw = st.session_state["case_data"]["raw_case"]

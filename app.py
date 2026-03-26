@@ -181,36 +181,36 @@ CASES = {
         "alerts": 3,
     },
     "CASE-002": {
-        "label": "🟠 CASE-002 · HIGH — DNS Tunnelling C2 Exfiltration",
-        "severity": "HIGH",
-        "badge": "badge-high",
-        "desc": "4.2 GB outbound DNS tunnelling to C2 domain registered 48h prior",
-        "ts": "2026-03-20T11:43:17Z",
-        "alerts": 3,
-    },
-    "CASE-003": {
-        "label": "🟠 CASE-003 · HIGH — Ransomware Precursor (Cobalt Strike)",
-        "severity": "HIGH",
-        "badge": "badge-high",
-        "desc": "PowerShell encoded execution + Cobalt Strike beacon on 3 dev endpoints",
-        "ts": "2026-03-20T22:08:55Z",
-        "alerts": 4,
-    },
-    "CASE-004": {
-        "label": "🔴 CASE-004 · CRITICAL — DNS Tunneling (Data Exfil)",
+        "label": "🔴 CASE-002 · CRITICAL — Ransomware & Operational Disruption Prevention",
         "severity": "CRITICAL",
         "badge": "badge-critical",
-        "desc": "1.8 GB DNS TXT tunneling to research-sync-service.top from WKS-RES-042",
-        "ts": "2026-03-22T10:15:00Z",
+        "desc": "Early indicators of malicious staging (unexpected scripts/memory anomalies) before encryption.",
+        "ts": "2026-03-26T08:15:00Z",
+        "alerts": 5,
+    },
+    "CASE-003": {
+        "label": "🟠 CASE-003 · HIGH — Insider Threat & Intellectual Property Theft",
+        "severity": "HIGH",
+        "badge": "badge-high",
+        "desc": "Employee staging confidential M&A data and algorithmic trading models for cloud exfiltration.",
+        "ts": "2026-03-26T09:30:00Z",
         "alerts": 2,
     },
+    "CASE-004": {
+        "label": "🔴 CASE-004 · CRITICAL — Client Data Breach & Extortion",
+        "severity": "CRITICAL",
+        "badge": "badge-critical",
+        "desc": "Compromised internal system siphoning large volumes of unreleased financial reports to malicious C2.",
+        "ts": "2026-03-26T10:45:00Z",
+        "alerts": 4,
+    },
     "CASE-005": {
-        "label": "🟡 CASE-005 · MEDIUM — Suspicious Login (Tor/Russia)",
-        "severity": "MEDIUM",
-        "badge": "badge-medium",
-        "desc": "Successful login from Tor exit node (185.220.101.52) involving MFA fatigue",
-        "ts": "2026-03-24T05:22:11Z",
-        "alerts": 2,
+        "label": "🟠 CASE-005 · HIGH — Business Email Compromise (BEC) & Financial Fraud",
+        "severity": "HIGH",
+        "badge": "badge-high",
+        "desc": "Executive Assistant clicked link leading to credential harvesting and fraudulent login attempts.",
+        "ts": "2026-03-26T11:20:00Z",
+        "alerts": 1,
     },
     "CASE-006": {
         "label": "🔵 CASE-006 · LOW — DLP PII Leakage (Logs)",
@@ -221,11 +221,11 @@ CASES = {
         "alerts": 1,
     },
     "CASE-007": {
-        "label": "🔴 CASE-007 · HIGH — Potential DNS Exfiltration Activity",
-        "severity": "HIGH",
-        "badge": "badge-high",
-        "desc": "Suspicious PowerShell command making DNS TXT requests to mediareleaseupdates.com from WIN10-8YB72USR (User: JDOE)",
-        "ts": "2026-03-24T10:34:22Z",
+        "label": "🟡 CASE-007 · MEDIUM — Authorized Security Activity (False Positive)",
+        "severity": "MEDIUM",
+        "badge": "badge-medium",
+        "desc": "Nmap port scanning from IT-ADMIN-01 targeting Database subnets during maintenance.",
+        "ts": "2026-03-26T12:00:00Z",
         "alerts": 1,
     },
     "CASE-008": {
@@ -247,15 +247,14 @@ CASES = {
 }
 
 PIPELINE_STEPS = [
-    "Case Ingestion",
-    "Data Retrieval",
-    "Playbook RAG",
-    "Threat Intel",
-    "Case Synthesis & Reporting",
-    "Recommendation",
-    "HITL Approval",
-    "Action Execution",
-    "Case Closure"
+    "Case Ingestion [Orchestrator]",
+    "Data Enrichment [Enrichment Agent — SIEM MCP]",
+    "Playbook Selection [Enrichment Agent — RAG Method]",
+    "Threat Intel Enrichment [Enrichment Agent — GTI MCP]",
+    "Impact & Incident Synthesis [Threat Analyst Agent — Gemini 2.0 Flash]",
+    "HITL Review [Analyst Gate]",
+    "Agentic Remediation [Action Executor Agent — SOAR MCP]",
+    "Automated Case Closure [Action Executor Agent — ServiceNow MCP]"
 ]
 
 ALL_PLAYBOOKS = [
@@ -525,11 +524,10 @@ with main_col:
                             st.session_state["hitl_state"] = event["state"]
                             st.session_state["active_steps"] = set()
                             if event["state"] == "awaiting":
-                                st.session_state["pipeline_step"] = 7
+                                st.session_state["pipeline_step"] = 6
                                 _audit("SecOps Orchestrator (AI)", "Pipeline paused for HITL approval", "AWAITING_ANALYST")
                             else:
-                                # For auto_approved, we keep step at 6 or move to a transitioning state
-                                # The auto_approved block below will jump it to 8.
+                                # For auto_approved, pipeline_step will be set to 7 in the hitl panel handler
                                 pass 
                             break
 
@@ -554,7 +552,7 @@ with main_col:
         cd = st.session_state["case_data"]
         raw = cd["raw_case"]
 
-        with st.expander("📂 Step 2 — Data Retrieved from SecOps", expanded=False):
+        with st.expander("📂 Step 2 — Data Enrichment [Enrichment Agent — SIEM MCP]", expanded=False):
             c1, c2 = st.columns(2)
             with c1:
                 st.markdown("**Correlated Alerts**")
@@ -573,7 +571,7 @@ with main_col:
     # ── Step 3: RAG results ────────────────────────────────────────────────────
     if st.session_state["pipeline_step"] >= 3 and st.session_state.get("rag_results"):
         rags = st.session_state["rag_results"]
-        with st.expander("📚 Step 3 — Playbook Matches (RAG)", expanded=False):
+        with st.expander("📚 Step 3 — Playbook Selection [Enrichment Agent — RAG Method]", expanded=False):
             for i, r in enumerate(rags):
                 score_pct = int(r.get("relevance_score", 0) * 100)
                 prefix = "🥇" if i == 0 else ("🥈" if i == 1 else "🥉")
@@ -590,7 +588,7 @@ with main_col:
     # ── Step 4: IoC enrichments ────────────────────────────────────────────────
     if st.session_state["pipeline_step"] >= 4 and st.session_state.get("ioc_data"):
         ioc_data = st.session_state["ioc_data"]
-        with st.expander("🔬 Step 4 — IoC Enrichments (Threat Intel)", expanded=False):
+        with st.expander("🔬 Step 4 — Threat Intel Enrichment [Enrichment Agent — GTI MCP]", expanded=False):
             all_iocs = (
                 [(d, "ip") for d in ioc_data.get("ips", [])] +
                 [(d, "hash") for d in ioc_data.get("hashes", [])] +
@@ -623,16 +621,39 @@ with main_col:
                 </div>
                 """, unsafe_allow_html=True)
 
-    # ── Step 5/6: Gemini analysis card ────────────────────────────────────────
-    if st.session_state["pipeline_step"] >= 6 and st.session_state.get("analysis"):
+    # ── Step 5: Impact & Incident Synthesis [Threat Analyst Agent] ──────────────
+    if st.session_state["pipeline_step"] >= 5 and st.session_state.get("analysis"):
+        analysis = st.session_state["analysis"]
+        st.markdown("---")
+        st.markdown("#### 🛡️ Step 5 — Impact & Incident Synthesis [Threat Analyst Agent — Gemini 2.0 Flash]")
+        
+        conf = analysis.get("confidence_score", 0)
+        st.markdown(f"""
+        <div class="secops-card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="flex:1">
+              {_conf_bar(conf)}
+            </div>
+            <div style="flex:1;display:flex;justify-content:space-around;margin-left:20px;background:#0f172a;padding:12px;border-radius:8px;border:1px solid #1e293b">
+                <div style="text-align:center">
+                  <div class="secops-card-header" style="margin-bottom:2px">Blast Radius: Endpoints</div>
+                  <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_endpoints',0)}</div>
+                </div>
+                <div style="text-align:center">
+                  <div class="secops-card-header" style="margin-bottom:2px">Blast Radius: Users</div>
+                  <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_users',0)}</div>
+                </div>
+            </div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    if st.session_state["pipeline_step"] >= 5 and st.session_state.get("analysis"): # Keep showing Synthesis as part of Step 5
         analysis = st.session_state["analysis"]
         sev = analysis.get("severity", "HIGH")
-        conf = analysis.get("confidence_score", 0)
         mitre = analysis.get("mitre_techniques", [])
-        ioc_enrichments = analysis.get("ioc_enrichments", [])
 
-        st.markdown("---")
-        st.markdown("## 🧠 Step 5 — AI Threat Synthesis")
+        # (Remove the redundant Step 6 header)
 
         # Main analysis card
         mitre_html = " ".join(
@@ -641,47 +662,32 @@ with main_col:
         )
         st.markdown(f"""
         <div class="secops-card">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
-            <div style="flex:2;min-width:200px">
-              <div class="secops-card-header">Threat Classification</div>
-              <div style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:8px">{analysis.get('threat_classification','')}</div>
-              <div style="margin-bottom:8px">{_severity_badge(sev)}</div>
-              <p style="color:#94a3b8;font-size:13px;line-height:1.6">{analysis.get('case_summary','')}</p>
-            </div>
-            <div style="flex:1;min-width:160px;background:#0f172a;padding:16px;border-radius:12px;border:1px solid #1e293b">
-              {_conf_bar(conf)}
-              <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                <div>
-                  <div class="secops-card-header" style="margin-bottom:2px">Endpoints</div>
-                  <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_endpoints',0)}</div>
-                </div>
-                <div>
-                  <div class="secops-card-header" style="margin-bottom:2px">Users</div>
-                  <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_users',0)}</div>
-                </div>
-              </div>
-            </div>
+          <div style="flex:2;min-width:200px">
+            <div class="secops-card-header">Threat Classification</div>
+            <div style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:8px">{analysis.get('threat_classification','')}</div>
+            <div style="margin-bottom:8px">{_severity_badge(sev)}</div>
+            <p style="color:#94a3b8;font-size:13px;line-height:1.6">{analysis.get('case_summary','')}</p>
           </div>
           <div style="margin-top:20px">
             <div class="secops-card-header">MITRE ATT&CK Techniques</div>
             {mitre_html if mitre_html else '<span style="color:#64748b;font-size:12px">None identified</span>'}
           </div>
-          <div style="margin-top:16px;padding:12px;background:#0a1628;border-radius:8px;border-left:3px solid #2563eb">
-            <div class="secops-card-header">Recommended Playbook</div>
-            <div style="font-weight:700;color:#60a5fa;font-size:14px">
+          <div style="margin-top:16px;padding:12px;background:#f8fafc;border-radius:8px;border-left:3px solid #2563eb;border:1px solid #e2e8f0">
+            <div class="secops-card-header" style="color:#2563eb">Recommended Playbook</div>
+            <div style="font-weight:700;color:#1e293b;font-size:14px">
               {analysis.get('recommended_playbook_id','')} — {analysis.get('recommended_playbook_name','')}
             </div>
-            <div style="color:#94a3b8;font-size:12px;margin-top:4px">{analysis.get('playbook_rationale','')}</div>
+            <div style="color:#475569;font-size:12px;margin-top:4px">{analysis.get('playbook_rationale','')}</div>
             <div style="color:#64748b;font-size:11px;margin-top:4px">⏱ Est. containment: {analysis.get('estimated_containment_time_minutes',0)} min</div>
           </div>
           <div style="margin-top:12px">
-            <div class="secops-card-header">Required Analyst Actions</div>
-            {''.join(f'<div style="color:#e2e8f0;font-size:12px;padding:2px 0">▸ {a}</div>' for a in analysis.get('analyst_actions_required',[]))}
+            <div class="secops-card-header" style="color:#2563eb">Required Analyst Actions</div>
+            {''.join(f'<div style="color:#334155;font-size:12px;padding:2px 0">▸ {a}</div>' for a in analysis.get('analyst_actions_required',[]))}
           </div>
         </div>
         """, unsafe_allow_html=True)
 
-    # ── Step 7: HITL Panel ─────────────────────────────────────────────────────
+    # ── Step 6: HITL Panel ─────────────────────────────────────────────────────
     if st.session_state["pipeline_step"] >= 6 and st.session_state["hitl_state"] != "none":
         hitl = st.session_state["hitl_state"]
         analysis = st.session_state.get("analysis", {})
@@ -689,13 +695,13 @@ with main_col:
         if hitl == "auto_approved":
             st.session_state["hitl_state"] = "approved"
             st.session_state["hitl_decision"] = "Auto-Approved"
-            _log("ORCHESTRATOR", "Agent recommended auto-approval. Proceeding to execution.")
-            _audit(st.session_state["analyst_name"], f"HITL: Auto-Approved {analysis.get('recommended_playbook_id')}", "Auto-Approved")
+            _log("ORCHESTRATOR", "Confidence > 90% and Severity Low/Medium. Auto-Remediation policy triggered.")
+            _audit("SYSTEM", f"Policy: Auto-Remediation triggered for {analysis.get('recommended_playbook_id')}", "Auto-Approved")
             from sentinel.tools.snow_mcp import add_worknote
             raw = st.session_state["case_data"]["raw_case"]
             snow_ref = raw.get("snow_incident_ref", "INC0000000")
-            add_worknote(snow_ref, f"HITL DECISION: Auto-approved by system rules at {datetime.now(timezone.utc).isoformat()}", author="SYSTEM")
-            st.session_state["pipeline_step"] = 8
+            add_worknote(snow_ref, f"HITL DECISION: Auto-approved by system policy (>90% confidence) at {datetime.now(timezone.utc).isoformat()}", author="SYSTEM")
+            st.session_state["pipeline_step"] = 7
             st.session_state["running"] = True
             st.rerun()
 
@@ -703,7 +709,7 @@ with main_col:
             st.markdown("---")
             st.markdown(f"""
             <div class="hitl-panel">
-              <div class="hitl-title">⏸ Human-in-the-Loop Approval Required</div>
+              <div class="hitl-title">⏸ Step 6 — HITL Approval Required [Analyst Gate]</div>
               <div class="hitl-subtitle">Review the Gemini analysis above, then choose an action to proceed.</div>
             </div>
             """, unsafe_allow_html=True)
@@ -719,7 +725,7 @@ with main_col:
                     raw = st.session_state["case_data"]["raw_case"]
                     snow_ref = raw.get("snow_incident_ref", "INC0000000")
                     add_worknote(snow_ref, f"HITL DECISION: Accepted by {st.session_state['analyst_name']} at {datetime.now(timezone.utc).isoformat()}", author=st.session_state["analyst_name"])
-                    st.session_state["pipeline_step"] = 8
+                    st.session_state["pipeline_step"] = 7
                     st.session_state["running"] = True
                     st.rerun()
             with col_o:
@@ -786,7 +792,7 @@ with main_col:
                     
                     st.session_state["analyst_feedback"] = feedback
                     st.session_state["hitl_decision"] = "reject"
-                    st.session_state["pipeline_step"] = 8
+                    st.session_state["pipeline_step"] = 7
                     st.session_state["running"] = True
                     st.rerun()
             with col2:
@@ -795,8 +801,8 @@ with main_col:
                     st.rerun()
             st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── Step 8: Action Execution ───────────────────────────────────────────────
-    if st.session_state.get("running") and st.session_state["pipeline_step"] == 8:
+    # ── Step 7: Action Execution ───────────────────────────────────────────────
+    if st.session_state.get("running") and st.session_state["pipeline_step"] == 7:
         try:
             import asyncio
             from runner import resume_adk_pipeline
@@ -809,7 +815,7 @@ with main_col:
             analysis = st.session_state["analysis"]
 
             async def run_resume_pipeline():
-                with st.status("⚡ ActionExecutor: Implementing Remediation (Step 8)...", expanded=True) as status:
+                with st.status("⚡ ActionExecutor: Implementing Remediation (Step 7)...", expanded=True) as status:
                     async for event in resume_adk_pipeline(session_id, analyst, decision, analysis, case_id, st.session_state["session_service"], override, feedback):
                         if event["type"] == "log":
                             _log(event["agent"], event["message"])
@@ -818,15 +824,12 @@ with main_col:
                             st.session_state[event["key"]] = event["data"]
                         elif event["type"] == "step":
                             st.session_state["pipeline_step"] = event["step"]
-                        elif event["type"] == "hitl":
-                            st.session_state["hitl_state"] = event["state"]
-                            break
                         elif event["type"] == "finish":
-                            st.session_state["pipeline_step"] = 10
+                            st.session_state["pipeline_step"] = 8
 
             asyncio.run(run_resume_pipeline())
             st.session_state["running"] = False
-            if st.session_state.get("pipeline_step") == 10:
+            if st.session_state.get("pipeline_step") >= 8:
                 _audit("SecOps Orchestrator (AI)", "Pipeline complete", "RESOLVED")
             st.rerun()
 
@@ -837,14 +840,14 @@ with main_col:
             st.session_state["running"] = False
             _log("ORCHESTRATOR", f"❌ ERROR in action execution: {e}")
 
-    # ── Step 8 display: action execution log ───────────────────────────────────
-    if st.session_state["pipeline_step"] >= 9 and st.session_state.get("execution"):
+    # ── Step 7 display: action execution log ───────────────────────────────────
+    if st.session_state["pipeline_step"] >= 7 and st.session_state.get("execution"):
         exec_data = st.session_state["execution"]
         steps = exec_data["execution"].get("action_steps", [])
         playbook_id = st.session_state["analysis"].get("recommended_playbook_id","")
         playbook_name = st.session_state["analysis"].get("recommended_playbook_name","")
 
-        with st.expander(f"⚙️ Step 8 — Action Execution Details", expanded=False):
+        with st.expander(f"⚙️ Step 7 — Agentic Remediation [Action Executor Agent — SOAR MCP]", expanded=False):
             st.markdown(f'<div style="color:#60a5fa;font-size:13px;font-weight:600">{playbook_id} — {playbook_name}</div>', unsafe_allow_html=True)
             action_container = st.container()
             with action_container:
@@ -858,13 +861,13 @@ with main_col:
                         unsafe_allow_html=True
                     )
 
-    # ── Step 9: SNOW ticket card + audit trail ─────────────────────────────────
-    if st.session_state["pipeline_step"] >= 10 and st.session_state.get("closure"):
+    # ── Step 8: SNOW ticket card + audit trail ─────────────────────────────────
+    if st.session_state["pipeline_step"] >= 8 and st.session_state.get("closure"):
         closure = st.session_state["closure"]
         snow_state = closure.get("snow_state", {})
         analysis = st.session_state.get("analysis", {})
 
-        with st.expander("📋 Step 9 — Case Closure & Audit Details", expanded=False):
+        with st.expander("📋 Step 8 — Case Closure & Audit Details [Action Executor Agent — ServiceNow MCP]", expanded=False):
             # SNOW ticket card
             opened_at = snow_state.get("opened_at","—")[:16].replace("T"," ") if snow_state.get("opened_at") else "—"
             resolved_at = snow_state.get("resolved_at","—")
@@ -879,7 +882,7 @@ with main_col:
               <div style="font-size:12px;color:#22c55e;margin-top:2px">{sla_str}</div>
             </div>
             <div style="text-align:right">
-              <span style="background:#14532d;color:#86efac;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700">RESOLVED</span>
+              <span style="background:{'#1e3a8a' if analysis.get('is_false_positive') else '#14532d'};color:{'#93c5fd' if analysis.get('is_false_positive') else '#86efac'};padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700">{'RESOLVED (FALSE POSITIVE)' if analysis.get('is_false_positive') else 'RESOLVED'}</span>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px;flex-wrap:wrap">
@@ -892,7 +895,7 @@ with main_col:
           </div>
           <div style="margin-top:12px">
             <div class="snow-field">Resolution Notes Preview</div>
-            <div style="background:#0a1a0a;border-radius:6px;padding:10px;margin-top:4px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#94a3b8;white-space:pre-wrap">{closure['close_notes'][:600]}...</div>
+            <div style="background:#0a1a0a;border-radius:6px;padding:10px;margin-top:4px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#cbd5e1;white-space:pre-wrap">{(closure.get('close_notes') or analysis.get('reasoning_for_recommendation', '...'))[:800]}</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -936,7 +939,7 @@ with main_col:
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:600px;margin:0 auto">
             <div class="secops-card" style="text-align:center">
               <div style="font-size:28px">🤖</div>
-              <div style="font-size:12px;color:#94a3b8;margin-top:8px">5 specialist AI agents collaborating in real time</div>
+              <div style="font-size:12px;color:#94a3b8;margin-top:8px">4 specialist AI agents collaborating in real time</div>
             </div>
             <div class="secops-card" style="text-align:center">
               <div style="font-size:28px">📚</div>
@@ -949,3 +952,50 @@ with main_col:
           </div>
         </div>
         """, unsafe_allow_html=True)
+
+        # ── SOC Analyst Chat ───────────────────────────────────────────────────
+        # st.divider()
+        # st.subheader("💬 SOC Analyst AI Assistant")
+        # 
+        # if "chat_history" not in st.session_state:
+        #     st.session_state["chat_history"] = []
+        # 
+        # chat_container = st.container(height=350)
+        # with chat_container:
+        #     for msg in st.session_state["chat_history"]:
+        #         with st.chat_message(msg["role"]):
+        #             st.markdown(msg["content"])
+        # 
+        # if chat_input := st.chat_input("Ask about this case, investigation details, or playbooks..."):
+        #     st.session_state["chat_history"].append({"role": "user", "content": chat_input})
+        #     with chat_container:
+        #         with st.chat_message("user"):
+        #             st.markdown(chat_input)
+        # 
+        #     with chat_container:
+        #         with st.chat_message("assistant"):
+        #             with st.spinner("AI is thinking..."):
+        #                 from runner import run_soc_chat
+        #                 session_id = st.session_state.get("adk_session_id", "default-chat")
+        #                 analyst_name = st.session_state.get("analyst_name", "SOC-Analyst")
+        #                 service = st.session_state["session_service"]
+        #                 
+        #                 response_chunks = []
+        #                 async def get_response():
+        #                     async for event in run_soc_chat(chat_input, session_id, analyst_name, service):
+        #                         if event["type"] == "text":
+        #                             response_chunks.append(event["text"])
+        #                 
+        #                 try:
+        #                     import asyncio
+        #                     asyncio.run(get_response())
+        #                     full_response = "".join(response_chunks)
+        #                     st.markdown(full_response)
+        #                     st.session_state["chat_history"].append({"role": "assistant", "content": full_response})
+        #                 except Exception as e:
+        #                     st.error(f"Chat error: {e}")
+        #                     st.write(f"Ensure your .env is configured correctly.")
+
+        # Footer
+        st.markdown("---")
+        st.markdown('<div style="text-align:center;color:#64748b;font-size:11px">Agentic SecOps Platform v2.5 · Powered by Gemini & Google ADK</div>', unsafe_allow_html=True)

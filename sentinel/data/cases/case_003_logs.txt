@@ -1,12 +1,4 @@
-Mar 20 22:08:55 WKS-DEV-021 CEF:0|Microsoft|AMSI|10.0|AMSI_DETECT|Encoded PowerShell Blocked|9|src=10.10.5.21 sproc=powershell.exe cs1=EncodedCommand cs2=AMSI_BYPASS_ATTEMPTED
-Mar 20 22:09:01 WKS-DEV-021 CEF:0|CrowdStrike|Falcon|6.50|Script|Obfuscated PowerShell|9|src=10.10.5.21 sproc=powershell.exe cs1=Base64Encoded cs2=HIGH_CONFIDENCE cmd=powershell.exe -Enc JABzAD0ATgBlAHcA...
-Mar 20 22:09:15 WKS-DEV-021 CEF:0|CrowdStrike|Falcon|6.50|MemScan|Cobalt Strike Beacon Found|10|src=10.10.5.21 sproc=explorer.exe cs1=CobaltStrikeBeacon cs2=c2.agent cs3=CONFIRMED pid=4821
-Mar 20 22:11:30 WKS-DEV-021 CEF:0|Palo Alto|Firewall|10.1|TRAFFIC|C2 Beacon Heartbeat|9|src=10.10.5.21 dst=78.128.113.44 dpt=443 proto=HTTPS cs1=CS_BEACON interval=60s
-Mar 20 22:13:10 WKS-DEV-021 CEF:0|CrowdStrike|Falcon|6.50|Injection|Process Hollowing Detected|9|src=10.10.5.21 sproc=explorer.exe dproc=svchost.exe cs1=PROCESS_HOLLOWING
-Mar 20 22:15:42 WKS-DEV-023 CEF:0|Microsoft|AMSI|10.0|AMSI_DETECT|Encoded PowerShell Blocked|9|src=10.10.5.23 sproc=powershell.exe cs1=EncodedCommand cs2=SAME_SIGNATURE_AS_WKS-DEV-021
-Mar 20 22:15:55 WKS-DEV-023 CEF:0|CrowdStrike|Falcon|6.50|MemScan|Cobalt Strike Beacon Found|10|src=10.10.5.23 sproc=explorer.exe cs1=CobaltStrikeBeacon cs2=c2.agent cs3=CONFIRMED pid=5102
-Mar 20 22:16:00 WKS-DEV-023 CEF:0|CrowdStrike|Falcon|6.50|Injection|Process Injection Detected|9|src=10.10.5.23 sproc=explorer.exe dproc=svchost.exe cs1=PROCESS_INJECTION
-Mar 20 22:20:11 WKS-DEV-025 CEF:0|Microsoft|AMSI|10.0|AMSI_DETECT|Encoded PowerShell|9|src=10.10.5.25 sproc=powershell.exe cs1=EncodedCommand cs2=SAME_SIGNATURE
-Mar 20 22:20:30 WKS-DEV-025 CEF:0|CrowdStrike|Falcon|6.50|MemScan|Cobalt Strike Beacon Found|10|src=10.10.5.25 sproc=explorer.exe cs1=CobaltStrikeBeacon cs2=c2.agent cs3=CONFIRMED pid=3847
-Mar 20 22:20:55 WKS-DEV-025 CEF:0|Palo Alto|Firewall|10.1|TRAFFIC|C2 Beacon Heartbeat|9|src=10.10.5.25 dst=78.128.113.44 dpt=443 proto=HTTPS cs1=CS_BEACON
-Mar 20 22:21:00 SecOps CEF:0|Google|SecOps SIEM|1.0|CORRELATION|Ransomware Precursor: CS Beacon + EncodedPS|10|src=10.10.5.21 src2=10.10.5.23 src3=10.10.5.25 rule=RANSOMWARE_PRECURSOR cs1=CASE-003
+2026-03-26T18:00:00Z CEF:0|Microsoft|Windows|11.0|4624|Logon|3|user=m.patel src=10.10.5.21
+2026-03-26T18:08:55Z CEF:0|Microsoft|Windows|11.0|4663|FileAccess|5|user=m.patel file="\\SRV-FS01\Mergers-Acquisitions\Project-Gemini\Financials"
+2026-03-26T18:11:30Z CEF:0|Microsoft|Windows|11.0|7045|ServiceCreation|7|user=SYSTEM cs1="USB Storage Device Driver loaded"
+2026-03-26T18:11:45Z CEF:0|DLP|Agent|1.0|FileExfiltration|High|user=m.patel file="Budget_2026.xlsx" dest="USB-DRIVE-F"

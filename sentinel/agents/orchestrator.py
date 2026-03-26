@@ -41,8 +41,8 @@ STEP 3 — Analysis Delivery:
 STEP 4 — Action Handover:
   When you receive a message starting with "HITL DECISION RECEIVED":
   1. DO NOT repeat the analysis JSON or provide any more summary.
-  2. Immediately delegate to ActionExecutorAgent. Pass it the approved playbook_id, case_id, and the ServiceNow incident number (found in session state as snow_incident_ref).
-  3. This is the final step of your coordination for this turn.
+  2. Immediately delegate to ActionExecutorAgent. Pass it the approved playbook_id, case_id, the ServiceNow incident number (snow_incident_ref), and the full CaseAnalysis JSON produced in Step 2.
+  3. Tell the ActionExecutorAgent to use the detailed reasoning and case summary from the CaseAnalysis to populate the ServiceNow resolution notes.
 
 CRITICAL RULES:
 - Complete each step fully before starting the next.

@@ -1,68 +1,44 @@
 {
   "case_id": "CASE-003",
-  "title": "Ransomware precursor - Cobalt Strike beacon + encoded PowerShell",
+  "title": "Insider Threat & Intellectual Property Theft",
   "severity": "HIGH",
   "status": "OPEN",
-  "created_at": "2026-03-20T22:08:55Z",
+  "created_at": "2026-03-26T09:30:00Z",
   "source_system": "Google SecOps",
-  "description": "Encoded PowerShell execution detected on 3 endpoints within a 12-minute window. EDR memory analysis confirmed Cobalt Strike beacon signature (c2.agent) resident in explorer.exe on all three hosts. Stage 2 of a likely ransomware deployment chain — immediate isolation required.",
+  "description": "System detects employee m.patel accessing critical data repositories (M&A details, algorithmic trading models) during off-hours and staging data for USB exfiltration. Potential intellectual property theft by a trusted insider.",
   "alerts": [
     {
       "alert_id": "ALT-9312",
-      "rule_name": "Malware - Encoded PowerShell Execution (AMSI bypass)",
+      "rule_name": "Compliance - Unauthorized Sensitive File Access",
       "severity": "HIGH",
       "source_ip": "10.10.5.21",
       "destination_ips": [],
-      "timestamp": "2026-03-20T22:08:55Z",
+      "timestamp": "2026-03-26T18:08:55Z",
       "raw_log_ref": "case_003_logs.txt"
     },
     {
       "alert_id": "ALT-9313",
-      "rule_name": "EDR - Cobalt Strike Beacon Detected In-Memory",
-      "severity": "CRITICAL",
-      "source_ip": "10.10.5.21",
-      "destination_ips": ["78.128.113.44"],
-      "timestamp": "2026-03-20T22:11:30Z",
-      "raw_log_ref": "case_003_logs.txt"
-    },
-    {
-      "alert_id": "ALT-9314",
-      "rule_name": "EDR - Process Injection: explorer.exe → svchost.exe",
-      "severity": "CRITICAL",
-      "source_ip": "10.10.5.23",
-      "destination_ips": [],
-      "timestamp": "2026-03-20T22:15:42Z",
-      "raw_log_ref": "case_003_logs.txt"
-    },
-    {
-      "alert_id": "ALT-9315",
-      "rule_name": "Lateral Spread - Encoded PS on additional endpoints",
+      "rule_name": "DLP - Large File Copy to Removable Drive (USB)",
       "severity": "HIGH",
-      "source_ip": "10.10.5.25",
+      "source_ip": "10.10.5.21",
       "destination_ips": [],
-      "timestamp": "2026-03-20T22:20:11Z",
+      "timestamp": "2026-03-26T18:11:30Z",
       "raw_log_ref": "case_003_logs.txt"
     }
   ],
   "affected_assets": [
-    {"hostname": "WKS-DEV-021", "ip": "10.10.5.21", "os": "Windows 11 Pro", "user": "m.patel", "role": "Developer workstation — initial victim"},
-    {"hostname": "WKS-DEV-023", "ip": "10.10.5.23", "os": "Windows 11 Pro", "user": "k.lee", "role": "Developer workstation"},
-    {"hostname": "WKS-DEV-025", "ip": "10.10.5.25", "os": "Windows 11 Pro", "user": "a.jones", "role": "Developer workstation"}
+    {"hostname": "WKS-DEV-021", "ip": "10.10.5.21", "os": "Windows 11 Pro", "user": "m.patel", "role": "Senior Developer — M&A Team"}
   ],
   "iocs": {
-    "ips": ["78.128.113.44"],
-    "hashes": [
-      "5740bd4e89b4b8c7978b54a7a706d5be961a0db5541e9ac7c799c2f41f1de59a",
-      "d41d8cd98f00b204e9800998ecf8427e"
-    ],
-    "domains": ["cobalt-c2.badactor.net"]
+    "ips": [],
+    "hashes": [],
+    "domains": []
   },
   "timeline": [
-    {"timestamp": "2026-03-20T22:08:55Z", "event": "Encoded PowerShell detected on WKS-DEV-021 (AMSI bypass attempted)"},
-    {"timestamp": "2026-03-20T22:11:30Z", "event": "Cobalt Strike beacon confirmed in explorer.exe memory dump"},
-    {"timestamp": "2026-03-20T22:15:42Z", "event": "Process injection WKS-DEV-023 — lateral spread detected"},
-    {"timestamp": "2026-03-20T22:20:11Z", "event": "Third endpoint WKS-DEV-025 infected — consistent spread pattern"},
-    {"timestamp": "2026-03-20T22:21:00Z", "event": "SecOps SIEM ransomware precursor rule triggered — case opened"}
+    {"timestamp": "2026-03-26T18:00:00Z", "event": "Off-hours login detected for employee m.patel"},
+    {"timestamp": "2026-03-26T18:08:55Z", "event": "Unauthorized access to '/M&A/Project-Gemini/Financials' detected"},
+    {"timestamp": "2026-03-26T18:11:30Z", "event": "USB device insertion detected — 1.2 GB of data copied immediately after access"},
+    {"timestamp": "2026-03-26T18:15:00Z", "event": "Insider Threat behavioral rule triggered — Case opened"}
   ],
   "snow_incident_ref": "INC0042103",
   "assigned_analyst": "Unassigned"

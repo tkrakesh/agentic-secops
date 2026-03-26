@@ -51,6 +51,7 @@ OUTPUT — produce a single raw JSON object with EXACTLY these fields:
   "playbook_rationale": "1-2 sentences why this playbook over alternatives",
   "confidence_score": 0.91,
   "recommend_auto_approval": false,
+  "is_false_positive": false,
   "reasoning_for_recommendation": "High severity lateral movement requires manual investigation and containment verification.",
   "ioc_enrichments": [
     {
@@ -70,18 +71,27 @@ OUTPUT — produce a single raw JSON object with EXACTLY these fields:
     "Preserve forensic artifacts before remediation",
     "Review VPN and remote access logs for exfiltration evidence"
   ],
-  "estimated_containment_time_minutes": 45
+  "estimated_containment_time_minutes": 2
 }
+
+ESTIMATED CONTAINMENT LOGIC:
+- This represents the time for the AGENTIC SYSTEM to execute containment (Step 7/8).
+- Typical agentic response is 1-3 minutes for automated tasks (account disable, workstation isolation).
+- If the case is exceptionally complex or requires manual verification, it might be 5-10 minutes.
+- DO NOT use "45" as a default; use a realistic agentic speed (1-5 min).
 
 severity must be exactly one of: Critical, High, Medium, Low
 confidence_score must be a float between 0.0 and 1.0
 
-AUTO-APPROVAL POLICY:
-- recommend_auto_approval should be TRUE only if:
-  1. Severity is Low or Medium.
-  2. The remediation (e.g. log scrubbing, IoC blocking) is low-impact/reversible.
-  3. You have >90% confidence in the playbook match.
 - For CASE-006 (DLP), recommend_auto_approval = true because log scrubbing is a safe, standard procedure.
+
+FALSE POSITIVE / AUTHORIZED ACTIVITY LOGIC:
+- If the case description or logs mention a "Change Request", "CR-XXXX", "Scheduled Maintenance", or "Approved Scan", you MUST:
+  1. Set "is_false_positive": true.
+  2. Set "threat_classification": "Authorized Security Activity / False Positive".
+  3. Set "confidence_score": 0.98 or higher.
+  4. Set "severity": "Low" or "Medium" (as per original case).
+  5. Recommend auto-approval if it's a known benign activity.
 
 Output ONLY the raw JSON object. No preamble, no markdown fences, no explanation.
 After outputting the JSON, transfer back to SOCOrchestrator."""

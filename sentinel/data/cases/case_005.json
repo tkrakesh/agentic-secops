@@ -1,45 +1,34 @@
 {
   "case_id": "CASE-005",
-  "title": "Suspicious Login from Unusual Location",
-  "severity": "MEDIUM",
+  "title": "Business Email Compromise (BEC) & Financial Fraud",
+  "severity": "HIGH",
   "status": "OPEN",
-  "created_at": "2026-03-24T05:22:11Z",
+  "created_at": "2026-03-26T11:20:00Z",
   "source_system": "Google SecOps",
-  "description": "Successful login detected for user 'd.miller' from a known Tor exit node (185.220.101.52) in a geographic location (Russia) never previously associated with this account. MFA was bypassed using a 'Push Fatigue' technique (multiple denied prompts followed by one acceptance).",
+  "description": "Executive Assistant m.davis clicked a malicious link in an email disguised as an urgent financial request, leading to credential harvesting and a subsequent login attempt from an unusual geographic location.",
   "alerts": [
     {
-      "alert_id": "ALT-9101",
-      "rule_name": "IAM - Login from Tor Exit Node",
-      "severity": "MEDIUM",
-      "source_ip": "185.220.101.52",
-      "destination_ips": ["N/A"],
-      "timestamp": "2026-03-24T05:22:11Z",
-      "raw_log_ref": "case_005_logs.txt"
-    },
-    {
       "alert_id": "ALT-9102",
-      "rule_name": "MFA - Potential Push Fatigue Attack",
-      "severity": "MEDIUM",
-      "source_ip": "185.220.101.52",
-      "destination_ips": ["N/A"],
-      "timestamp": "2026-03-24T05:21:45Z",
+      "rule_name": "Phishing - External Link Click",
+      "severity": "HIGH",
+      "source_ip": "192.168.50.12",
+      "destination_ips": ["104.24.12.89"],
+      "timestamp": "2026-03-26T10:45:00Z",
       "raw_log_ref": "case_005_logs.txt"
     }
   ],
   "affected_assets": [
-    {"hostname": "Azure AD / Office 365", "ip": "N/A", "os": "Cloud Identity", "user": "d.miller", "role": "Marketing Specialist"}
+    {"hostname": "WKS-EXEC-05", "ip": "192.168.50.12", "os": "Windows", "user": "m.davis", "role": "Executive Assistant"}
   ],
   "iocs": {
-    "ips": ["185.220.101.52"],
+    "ips": ["104.24.12.89"],
     "hashes": [],
-    "domains": []
+    "domains": ["secure-login-accenture.top"]
   },
   "timeline": [
-    {"timestamp": "2026-03-24T05:18:22Z", "event": "First MFA prompt for d.miller — Denied"},
-    {"timestamp": "2026-03-24T05:19:10Z", "event": "Second MFA prompt for d.miller — Denied"},
-    {"timestamp": "2026-03-24T05:21:45Z", "event": "Third MFA prompt — Approved"},
-    {"timestamp": "2026-03-24T05:22:11Z", "event": "Successful login established from 185.220.101.52 (Tor Exit)"}
+    {"timestamp": "2026-03-26T10:30:00Z", "event": "Phishing email delivered"},
+    {"timestamp": "2026-03-26T10:44:00Z", "event": "URL click detected to malicious domain"},
+    {"timestamp": "2026-03-26T10:45:00Z", "event": "Inbound alert from Web Proxy - Case created"}
   ],
-  "snow_incident_ref": "INC0042331",
-  "assigned_analyst": "Unassigned"
+  "snow_incident_ref": "INC0042105"
 }

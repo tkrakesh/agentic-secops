@@ -51,6 +51,23 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 from sentinel.agents.orchestrator import soc_orchestrator
+from sentinel.agents.chat_agent import soc_chat_agent
+
+async def run_soc_chat(user_input: str, session_id: str, analyst_name: str, service: InMemorySessionService):
+    """Run a single conversational turn with the SOC Chat Agent."""
+    runner = Runner(
+        app_name="sentinel-soc",
+        agent=soc_chat_agent,
+        session_service=service
+    )
+    content = types.Content(role="user", parts=[types.Part.from_text(text=user_input)])
+    async for event in runner.run_async(
+        session_id=session_id,
+        user_id=analyst_name,
+        new_message=content
+    ):
+        if hasattr(event, "text"):
+            yield {"type": "text", "text": event.text}
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -94,12 +111,14 @@ def _check_auto_approve(case_id, analysis_data, case_data):
     """Unified logic for agent-driven and policy-based auto-approval."""
     agent_recommends = analysis_data.get("recommend_auto_approval", False)
     
-    # Fallback for Demo: Any LOW/MEDIUM severity case or CASE-006/CASE-009
     analysis_sev = analysis_data.get("severity", "").upper()
     raw_sev = case_data["raw_case"].get("severity", "HIGH").upper()
     current_sev = (analysis_sev or raw_sev)
+    confidence = analysis_data.get("confidence_score", 0)
     
-    should_auto = agent_recommends or ("LOW" in current_sev) or ("MEDIUM" in current_sev) or (case_id in ["CASE-006", "CASE-009"])
+    # User Policy: Auto-remediate if severity is MEDIUM or LOW and confidence > 90%.
+    # Also auto-approve specific low-risk administrative cases (CASE-006/009).
+    should_auto = (("LOW" in current_sev or "MEDIUM" in current_sev) and confidence >= 0.90) or (case_id in ["CASE-006", "CASE-009"])
     return should_auto, current_sev, analysis_data.get("reasoning_for_recommendation", "N/A")
 
 async def run_adk_pipeline(
@@ -153,8 +172,14 @@ async def run_adk_pipeline(
         ):
             author = _get_agent_name(event.author)
             ua = author.upper()
-            if ua == "THREATANALYSTAGENT" or ua == "SOCORCHESTRATOR":
+            if ua == "ENRICHMENTAGENT":
+                # Enrichment spans Step 2, 3, 4. Show Step 2 as active during tool work.
+                yield {"type": "step", "step": 2}
+            elif ua == "THREATANALYSTAGENT":
                 yield {"type": "step", "step": 5}
+            elif ua == "SOCORCHESTRATOR" and not analysis_emitted:
+                # Orchestrator start is Step 1 (Ingestion)
+                yield {"type": "step", "step": 1}
 
             if not event.content or not event.content.parts:
                 continue
@@ -304,7 +329,7 @@ async def resume_adk_pipeline(
 
                     if name == "trigger_playbook":
                         execution["execution"] = resp
-                        yield {"type": "step", "step": 8}
+                        yield {"type": "step", "step": 7}
                         yield {"type": "state", "key": "execution", "data": execution}
                         yield {"type": "log", "agent": "ActionExecutorAgent", "message": f"✓ Playbook triggered."}
                     elif name == "add_worknote":
@@ -316,7 +341,7 @@ async def resume_adk_pipeline(
                             from sentinel.tools.snow_mcp import get_incident_state
                             closure["snow_state"] = get_incident_state(snow_ref)
                         except Exception: pass
-                        yield {"type": "step", "step": 9}
+                        yield {"type": "step", "step": 8}
                         yield {"type": "state", "key": "closure", "data": closure}
                         yield {"type": "log", "agent": "ActionExecutorAgent", "message": "✓ Incident closed in ServiceNow."}
                     elif name == "update_case_status":

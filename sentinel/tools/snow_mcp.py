@@ -146,6 +146,7 @@ def close_incident(inc_number: str, close_notes: str, close_code: str = "Resolve
         "number": inc_number,
         "state": "Resolved",
         "resolved_at": resolved_at,
+        "close_notes": close_notes,
         "close_notes_preview": close_notes[:100] + "..." if len(close_notes) > 100 else close_notes,
     }
 

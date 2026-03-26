@@ -1,8 +1,3 @@
-[2026-03-24 05:18:22] AAD: Login attempt for d.miller@corp.com from 185.220.101.52 (Russia/Tor)
-[2026-03-24 05:18:23] MFA: Push notification sent to Miller's iPhone.
-[2026-03-24 05:18:45] MFA: Push notification DENIED by user.
-[2026-03-24 05:19:10] MFA: Push notification sent to Miller's iPhone.
-[2026-03-24 05:19:35] MFA: Push notification DENIED by user.
-[2026-03-24 05:21:40] MFA: Push notification sent to Miller's iPhone.
-[2026-03-24 05:21:45] MFA: Push notification APPROVED by user.
-[2026-03-24 05:22:11] AAD: Successful logon for d.miller@corp.com from 185.220.101.52.
+2026-03-26T10:30:12Z MAIL: Received from 'ceo.accenture@gmail.com' to 'm.davis@bank.com'. Subject: 'Urgent: Review Payroll Update'.
+2026-03-26T10:44:55Z PROXY: URL Click detected. Source: 192.168.50.12. Destination: http://secure-login-accenture.top/login.php.
+2026-03-26T10:45:00Z IDS: Malicious Domain 'secure-login-accenture.top' flagged. Category: Phishing/CredentialHarvesting.

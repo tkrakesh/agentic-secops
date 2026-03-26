@@ -13,6 +13,10 @@ from pathlib import Path
 DATA_DIR = Path(__file__).parent.parent / "data"
 CASES_DIR = DATA_DIR / "cases"
 SOAR_FILE = DATA_DIR / "soar_actions.json"
+ 
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL")
+if MCP_SERVER_URL:
+    import httpx
 
 _case_cache: dict = {}
 _soar_cache: dict = {}
@@ -34,6 +38,31 @@ def _load_soar() -> dict:
         with open(SOAR_FILE, encoding="utf-8") as f:
             _soar_cache = json.load(f)
     return _soar_cache
+ 
+ 
+def _call_remote_tool(name: str, args: dict) -> dict:
+    """Helper to call the remote MCP server if MCP_SERVER_URL is set."""
+    if not MCP_SERVER_URL:
+        return {}
+    try:
+        # Simple JSON-RPC style POST for the MVP
+        url = f"{MCP_SERVER_URL.rstrip('/')}/mcp"
+        payload = {
+            "method": "tools/call",
+            "params": {"name": name, "arguments": args}
+        }
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.post(url, json=payload)
+            resp.raise_for_status()
+            # The server.py (Starlette) returns TextContent list usually
+            res_content = resp.json()
+            if isinstance(res_content, list) and len(res_content) > 0:
+                text = res_content[0].get("text", "{}")
+                return json.loads(text)
+            return res_content
+    except Exception as e:
+        print(f"DEBUG: Remote MCP call failed: {e}")
+        return {}
 
 
 # ── Tool Functions ─────────────────────────────────────────────────────────────
@@ -47,6 +76,11 @@ def get_case(case_id: str) -> dict:
     Returns:
         Complete case data including alerts, assets, IoCs, and timeline.
     """
+    if MCP_SERVER_URL:
+        remote = _call_remote_tool("get_case", {"case_id": case_id})
+        if remote and "error" not in remote:
+            return remote
+ 
     case = _load_case(case_id)
     return {
         "case_id": case["case_id"],
@@ -73,6 +107,11 @@ def list_alerts(case_id: str) -> list[dict]:
     Returns:
         List of alert dicts with severity, rule name, source/destination IPs, and timestamp.
     """
+    if MCP_SERVER_URL:
+        remote = _call_remote_tool("list_alerts", {"case_id": case_id})
+        if isinstance(remote, list):
+            return remote
+ 
     case = _load_case(case_id)
     return case["alerts"]
 
@@ -140,6 +179,11 @@ def update_case_status(case_id: str, status: str, notes: str) -> dict:
     Returns:
         Acknowledgement dict with updated status.
     """
+    if MCP_SERVER_URL:
+        remote = _call_remote_tool("update_case_status", {"case_id": case_id, "status": status, "notes": notes})
+        if remote and "error" not in remote:
+            return remote
+ 
     return {
         "case_id": case_id,
         "updated_status": status,

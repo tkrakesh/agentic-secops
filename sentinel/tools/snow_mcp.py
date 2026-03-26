@@ -11,6 +11,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SNOW_FILE = Path(__file__).parent.parent / "data" / "snow" / "inc_template.json"
+ 
+import os
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL")
+if MCP_SERVER_URL:
+    import httpx
 
 # In-memory SNOW state — simulates a live SNOW instance for the demo
 _snow_state: dict = {}
@@ -27,6 +32,26 @@ def _get_incident_db() -> dict:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+ 
+ 
+def _call_remote_tool(name: str, args: dict) -> dict:
+    """Helper to call the remote MCP server if MCP_SERVER_URL is set."""
+    if not MCP_SERVER_URL:
+        return {}
+    try:
+        url = f"{MCP_SERVER_URL.rstrip('/')}/mcp"
+        payload = {"method": "tools/call", "params": {"name": name, "arguments": args}}
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.post(url, json=payload)
+            resp.raise_for_status()
+            res_content = resp.json()
+            if isinstance(res_content, list) and len(res_content) > 0:
+                text = res_content[0].get("text", "{}")
+                return json.loads(text)
+            return res_content
+    except Exception as e:
+        print(f"DEBUG: Remote SNOW MCP call failed: {e}")
+        return {}
 
 
 # ── Tool Functions ─────────────────────────────────────────────────────────────
@@ -58,6 +83,16 @@ def create_incident(short_description: str, description: str, priority: str, cas
     Returns:
         Created incident with INC number and sys_id.
     """
+    if MCP_SERVER_URL:
+        remote = _call_remote_tool("create_incident", {
+            "short_description": short_description,
+            "description": description,
+            "priority": priority,
+            "case_id": case_id
+        })
+        if remote and "error" not in remote:
+            return remote
+ 
     db = _get_incident_db()
     inc_num = f"INC{str(len(db) + 1042000).zfill(7)}"
     incident = {
@@ -86,6 +121,11 @@ def update_incident(inc_number: str, fields: dict) -> dict:
     Returns:
         Update acknowledgement with changed fields.
     """
+    if MCP_SERVER_URL:
+        remote = _call_remote_tool("update_incident", {"inc_number": inc_number, "fields": fields})
+        if remote and "error" not in remote:
+            return remote
+ 
     db = _get_incident_db()
     if inc_number not in db:
         return {"error": f"Incident {inc_number} not found"}
@@ -104,6 +144,11 @@ def add_worknote(inc_number: str, note: str, author: str = "Agentic SecOps AI") 
     Returns:
         Acknowledgement with note ID.
     """
+    if MCP_SERVER_URL:
+        remote = _call_remote_tool("add_worknote", {"inc_number": inc_number, "note": note, "author": author})
+        if remote and "error" not in remote:
+            return remote
+ 
     db = _get_incident_db()
     if inc_number not in db:
         return {"error": f"Incident {inc_number} not found"}
@@ -130,6 +175,11 @@ def close_incident(inc_number: str, close_notes: str, close_code: str = "Resolve
     Returns:
         Closure acknowledgement with resolved timestamps.
     """
+    if MCP_SERVER_URL:
+        remote = _call_remote_tool("close_incident", {"inc_number": inc_number, "close_notes": close_notes, "close_code": close_code})
+        if remote and "error" not in remote:
+            return remote
+ 
     db = _get_incident_db()
     if inc_number not in db:
         return {"error": f"Incident {inc_number} not found"}

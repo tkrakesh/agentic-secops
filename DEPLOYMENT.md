@@ -25,6 +25,7 @@ gcloud services enable \
     run.googleapis.com \
     artifactregistry.googleapis.com \
     aiplatform.googleapis.com \
+    secretmanager.googleapis.com \
     iam.googleapis.com
 ```
 
@@ -60,7 +61,9 @@ gcloud run deploy project-sentinel \
     --image us-central1-docker.pkg.dev/$PROJECT_ID/sentinel-repo/sentinel-app:latest \
     --region us-central1 \
     --service-account sentinel-runner-sa@$PROJECT_ID.iam.gserviceaccount.com \
-    --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_GENAI_USE_VERTEX_AI=true,SENTINEL_MODEL=gemini-2.5-flash" \
+    --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_GENAI_USE_VERTEXAI=true,SENTINEL_MODEL=gemini-2.0-flash" \
+    --max-instances=1 \
+    --min-instances=1 \
     --allow-unauthenticated # Open to public (Use IAP for production)
 ```
 

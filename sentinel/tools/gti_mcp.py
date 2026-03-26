@@ -11,6 +11,12 @@ import json
 from pathlib import Path
 
 IOC_DIR = Path(__file__).parent.parent / "data" / "ioc"
+ 
+import os
+import json
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL")
+if MCP_SERVER_URL:
+    import httpx
 
 _ip_cache: dict = {}
 _hash_cache: dict = {}
@@ -39,6 +45,26 @@ def _load_domains() -> dict:
         with open(IOC_DIR / "known_domains.json", encoding="utf-8") as f:
             _domain_cache = json.load(f)
     return _domain_cache
+ 
+ 
+def _call_remote_tool(name: str, args: dict) -> dict:
+    """Helper to call the remote MCP server if MCP_SERVER_URL is set."""
+    if not MCP_SERVER_URL:
+        return {}
+    try:
+        url = f"{MCP_SERVER_URL.rstrip('/')}/mcp"
+        payload = {"method": "tools/call", "params": {"name": name, "arguments": args}}
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.post(url, json=payload)
+            resp.raise_for_status()
+            res_content = resp.json()
+            if isinstance(res_content, list) and len(res_content) > 0:
+                text = res_content[0].get("text", "{}")
+                return json.loads(text)
+            return res_content
+    except Exception as e:
+        print(f"DEBUG: Remote GTI MCP call failed: {e}")
+        return {}
 
 
 # ── Tool Functions ─────────────────────────────────────────────────────────────
@@ -134,6 +160,11 @@ def bulk_enrich_iocs(ips: list[str] = [], hashes: list[str] = [], domains: list[
     Returns:
         A dictionary containing lists of enrichment results for each type.
     """
+    if MCP_SERVER_URL:
+        remote = _call_remote_tool("bulk_enrich_iocs", {"ips": ips, "hashes": hashes, "domains": domains})
+        if remote and "error" not in remote:
+            return remote
+ 
     results = {
         "ips": [enrich_ip(ip) for ip in ips],
         "hashes": [enrich_hash(h) for h in hashes],

@@ -195,7 +195,8 @@ async def run_adk_pipeline(
                     try:
                         from google.protobuf.json_format import MessageToDict
                         resp = MessageToDict(part.function_response.response._pb) if hasattr(part.function_response.response, "_pb") else dict(part.function_response.response)
-                    except Exception:
+                    except Exception as e:
+                        yield {"type": "log", "agent": "SYSTEM", "message": f"⚠️ Proto parse fallback: {str(e)[:100]}"}
                         resp = dict(part.function_response.response) if hasattr(part.function_response.response, "items") else {}
 
                     if name == "run_parallel_enrichment":

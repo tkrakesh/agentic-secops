@@ -1,0 +1,14 @@
+.env
+.env.*
+.venv/
+__pycache__/
+*.pyc
+*.zip
+.git/
+*.code-workspace
+node_modules/
+.streamlit/
+! .streamlit/config.toml
+tests/
+tmp/
+*.log

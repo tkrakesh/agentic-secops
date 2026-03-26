@@ -96,16 +96,16 @@ flowchart TD
 
             EN["EnrichmentAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/enrichment.py\nStep: 2-4  Mode: READ-ONLY\noutput_key: session_state"]
 
-            TA["ThreatAnalystAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/threat_analyst.py\nStep: 5-6  Mode: REASONER\noutput_key: case_analysis"]
+            TA["ThreatAnalystAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/threat_analyst.py\nStep: 5  Mode: REASONER\noutput_key: case_analysis"]
 
-            AE["ActionExecutorAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/action_executor.py\nStep: 8  Mode: WRITE\noutput_key: execution_log\nHITL-GATED"]
+            AE["ActionExecutorAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/action_executor.py\nStep: 7-8  Mode: WRITE\noutput_key: execution_log\nHITL-GATED"]
         end
     end
 
     ROOT -->|Step 1: delegate| EN
-    ROOT -->|Step 5-6: delegate| TA
-    ROOT -->|Step 7: HITL Gate| HITL
-    ROOT -->|Step 8: delegate after approval| AE
+    ROOT -->|Step 5: delegate| TA
+    ROOT -->|Step 6: HITL Gate| HITL
+    ROOT -->|Steps 7-8: delegate after approval| AE
 
     HITL["HITL Approval Gate\nStreamlit UI\n---\nAPPROVE  proceed to execute\nOVERRIDE select different playbook\nREJECT   provide feedback"]
 
@@ -162,10 +162,10 @@ flowchart TD
 
 | Agent | Class | Model | Pipeline Step | Output Key | Access Level |
 |---|---|---|---|---|---|
-| `SOCOrchestrator` | `LlmAgent` | gemini-2.0-flash | 5–6 (Reasoner) | `case_analysis` | READ + DELEGATE |
+| `SOCOrchestrator` | `LlmAgent` | gemini-2.0-flash | 1–8 (Control) | `case_analysis` | READ + DELEGATE |
 | `EnrichmentAgent` | `LlmAgent` | gemini-2.0-flash | 2–4 (Parallel Fetch) | N/A (State) | READ-ONLY |
-| `ThreatAnalystAgent` | `LlmAgent` | gemini-2.0-flash | 5–6 (Analysis) | `case_analysis` | READ-ONLY |
-| `ActionExecutorAgent` | `LlmAgent` | gemini-2.0-flash | 8–9 (Execute) | `execution_log` | WRITE (HITL-gated) |
+| `ThreatAnalystAgent` | `LlmAgent` | gemini-2.0-flash | 5 (Analysis) | `case_analysis` | READ-ONLY |
+| `ActionExecutorAgent` | `LlmAgent` | gemini-2.0-flash | 7–8 (Execute) | `execution_log` | WRITE (HITL-gated) |
 
 ### 4.3 Tool Map per Agent
 
@@ -197,55 +197,44 @@ ActionExecutorAgent
 | Entry Point | Purpose |
 |---|---|
 | `sentinel/agent.py` | ADK-discoverable root. Sets `root_agent = soc_orchestrator`. Used by `adk web` and `adk run`. |
-| `runner.py` | Streamlit pipeline integration. Uses `google.adk.runners.Runner` to execute `soc_orchestrator` and yields ADK `Event`s to drive the UI. |
-
----
-
-## 5. The 9-Step Pipeline
-
-```
-Step 1:  CASE INGESTION
-         SOC Analyst selects a Case ID in the Streamlit UI
-         Input:  case_id  (e.g. CASE-001)
-
-Step 2:  DATA RETRIEVAL  [CaseRetrievalAgent]
-         Tools:  get_case -> list_alerts -> get_raw_logs -> get_affected_assets
-         Output: case_context (CASE OVERVIEW + ALERTS + ASSETS + IOCs + LOG EXCERPT)
-
-Step 3:  PLAYBOOK IDENTIFICATION  [RAGPlaybookAgent]
-         Tool:   query_playbook_corpus(threat_context, top_k=3)
-         Method: TF-IDF keyword overlap + domain threat-term boosting
-         Output: playbook_match (Top 3 playbooks with relevance scores and excerpts)
-         HITL:   Analyst may OVERRIDE the top recommendation
-
-Step 4:  THREAT INTEL ENRICHMENT  [EnrichmentAgent]
-         Tools:  enrich_ip / enrich_hash / enrich_domain for each IoC
-         Sources: Google Threat Intelligence + VirusTotal Enterprise
-         Output: ioc_enrichments (per-IoC reputation, malware family, MITRE techniques)
-
-Steps 5-6: LLM REASONING + STRUCTURED OUTPUT  [ThreatAnalystAgent]
-         Process: ADK AutoFlow routes collected tool data automatically
-         Model:  gemini-2.0-flash via ADK LlmAgent
-         Output: CaseAnalysis (Pydantic schema defined natively in ADK)
-
-Step 7:  HITL APPROVAL GATE
-         Orchestrator emits: "AWAITING_HITL_APPROVAL"
-         UI presents full CaseAnalysis to the analyst:
-           APPROVE  -> proceed to action execution
-           OVERRIDE -> select a different playbook -> loop to Step 5
-           REJECT   -> provide feedback -> loop to Step 5
-         Constraint: ActionExecutorAgent is BLOCKED without approval token
-
-Step 8:  ACTION EXECUTION  [ActionExecutorAgent]  <-- WRITE operations begin
-         1. trigger_playbook(playbook_id, case_id)
-         2. add_worknote(inc_number, audit_note, author)
-         Output: execution_log (execution_id + action steps with status/duration)
-
-Step 9:  CASE CLOSURE + AUDIT TRAIL  [ActionExecutorAgent / runner.py]
-         3. close_incident(inc_number, close_notes)
-         4. update_case_status(case_id, "RESOLVED", notes)
-         Output: Full case resolution report
-```
+| `runner.py` | Streamlit pipeline integration. Uses `google.adk.runners.Runner` to execute `soc_orchestrator` and yields ADK `Event`s to dri## 5. The 8-Step Pipeline
+ 
+ ```
+ Step 1:  CASE INGESTION
+          SOC Analyst selects a Case ID in the Streamlit UI
+          Input:  case_id  (e.g. CASE-001)
+ 
+ Step 2:  DATA ENRICHMENT [EnrichmentAgent]
+          Tools:  get_case -> list_alerts -> get_raw_logs -> get_affected_assets
+          Output: case_context (CASE OVERVIEW + ALERTS + ASSETS + IOCs + LOG EXCERPT)
+ 
+ Step 3:  PLAYBOOK SELECTION [EnrichmentAgent]
+          Tool:   query_playbook_corpus(threat_context, top_k=3)
+          Method: TF-IDF RAG (Mocking Vertex AI RAG Engine)
+          Output: playbook_match (Top 3 playbooks with relevance scores and excerpts)
+ 
+ Step 4:  THREAT INTEL ENRICHMENT [EnrichmentAgent]
+          Tools:  enrich_ip / enrich_hash / enrich_domain for each IoC
+          Sources: Google Threat Intelligence (GTI)
+ 
+ Step 5:  IMPACT & INCIDENT SYNTHESIS [ThreatAnalystAgent]
+          Process: Gemini 2.0 Flash reasons across all context to generate structured report.
+          Output: CaseAnalysis (Pydantic schema defined natively in ADK)
+ 
+ Step 6:  HITL REVIEW [Analyst Gate]
+          Orchestrator emits: "AWAITING_HITL_APPROVAL"
+          Policy: Auto-approve if Confidence > 90% and Severity Medium/Low.
+          UI presents full CaseAnalysis to the analyst.
+ 
+ Step 7:  AGENTIC REMEDIATION [ActionExecutorAgent]
+          1. trigger_playbook(playbook_id, case_id)  (SOAR MCP)
+          2. add_worknote(inc_number, audit_note, author) (SNOW MCP)
+ 
+ Step 8:  AUTOMATED CASE CLOSURE [ActionExecutorAgent]
+          3. close_incident(inc_number, close_notes) (SNOW MCP)
+          4. update_case_status(case_id, "RESOLVED", notes) (SecOps MCP)
+          Output: Full case resolution report + SNOW audit trail.
+ ```
 
 ---
 
@@ -285,7 +274,7 @@ class CaseAnalysis(BaseModel):
 
 ## 7. Tool Layer (MCP-Style FunctionTools)
 
-### 7.1 SecOps MCP  (`sentinel/tools/secops_mcp.py`)
+### 7.1 SecOps MCP (`sentinel/tools/secops_mcp.py`)
 
 Simulates the **Google SecOps SIEM/SOAR MCP server**. In production, replaced by a live SecOps MCP connection.
 
@@ -298,7 +287,7 @@ Simulates the **Google SecOps SIEM/SOAR MCP server**. In production, replaced by
 | `trigger_playbook(playbook_id, case_id)` | **WRITE** | Initiates SOAR playbook execution |
 | `update_case_status(case_id, status, notes)` | **WRITE** | Updates case state to RESOLVED/CLOSED |
 
-### 7.2 RAG Tool  (`sentinel/tools/rag_tool.py`)
+### 7.2 RAG Tool (`sentinel/tools/rag_tool.py`)
 
 Semantic search over the SOAR playbook corpus. In production, replaced by a single call to the **Vertex AI RAG Engine API** — identical function signature and return schema.
 
@@ -306,7 +295,7 @@ Semantic search over the SOAR playbook corpus. In production, replaced by a sing
 |---|---|
 | `query_playbook_corpus(query_text, top_k=3)` | TF-IDF keyword overlap + domain threat-term boosting; returns ranked list of PlaybookMatch dicts |
 
-### 7.3 GTI/VirusTotal MCP  (`sentinel/tools/gti_mcp.py`)
+### 7.3 GTI/VirusTotal MCP (`sentinel/tools/gti_mcp.py`)
 
 Simulates **Google Threat Intelligence** and **VirusTotal Enterprise** API responses.
 
@@ -316,7 +305,7 @@ Simulates **Google Threat Intelligence** and **VirusTotal Enterprise** API respo
 | `enrich_hash(file_hash)` | MD5/SHA256 | File name, malware family, campaign, MITRE techniques, verdict |
 | `enrich_domain(domain)` | Domain | Resolved IPs, registration date, malware family, MITRE techniques |
 
-### 7.4 ServiceNow MCP  (`sentinel/tools/snow_mcp.py`)
+### 7.4 ServiceNow MCP (`sentinel/tools/snow_mcp.py`)
 
 Simulates **ServiceNow ITSM REST API v2**. In production, replaced by real ServiceNow REST API calls via MCP.
 
@@ -383,7 +372,7 @@ This is enforced at the agent instruction level — the agent will refuse to cal
 | **Structured Output** | Pydantic + ADK `output_schema` | Enforces JSON schema on Gemini responses |
 | **Playbook Search (POC)** | TF-IDF with domain boosting | Local; identical interface to Vertex AI RAG Engine |
 | **Playbook Search (Prod)** | Vertex AI RAG Engine | Drop-in replacement — same function signature |
-| **UI** | Streamlit (`app.py`) | 9-step pipeline stepper with HITL approval workflow |
+| **UI** | Streamlit (`app.py`) | 8-step pipeline stepper with HITL approval workflow |
 | **Data (POC)** | JSON fixtures + Markdown files | Mirrors real SecOps/GTI/SNOW API response schemas |
 | **Data (Prod)** | Live API via MCP servers | SecOps MCP, GTI API, VirusTotal Enterprise, SNOW REST |
 
@@ -393,7 +382,7 @@ This is enforced at the agent instruction level — the agent will refuse to cal
 
 ```
 Agentic-SecOps/
-+-- app.py                          # Streamlit UI -- 9-step pipeline + HITL
++-- app.py                          # Streamlit UI -- 8-step pipeline + HITL
 +-- runner.py                       # Pipeline coordinator (Streamlit <-> agents)
 +-- requirements.txt
 +-- .env / .env.example
@@ -446,42 +435,33 @@ The following sequence demonstrates a complete, automated lifecycle for a **Crit
 1. **Case Ingestion**: Analyst selects `CASE-001`. The orchestrator triggers Step 2.
 2. **Data Retrieval**: `CaseRetrievalAgent` fetches 3 correlated alerts (PsExec, Lateral Movement) and identifies 14 affected workstations (e.g., `SRV-APP03`).
 3. **Playbook RAG**: `RAGPlaybookAgent` queries the corpus. Using **Domain Threat-Term Boosting**, it identifies `pb-003 — credential compromise response` as the top match (Relevance: 43%).
-4. **Threat Intel**: `ThreatIntelAgent` enriches the C2 IP `45.33.32.156`, revealing it is malicious and linked to the Lazarus Group.
-
-### Phase 2: Analysis & HITL (Steps 5–7)
-5. **Gemini Analysis**: `SOCOrchestrator` (leveraging Gemini 2.5 Flash) synthesizes all tool outputs into a **CaseAnalysis** report.
-   - **Threat Class**: Credential Abuse / Lateral Movement / Command and Control.
-   - **Confidence**: 95%.
-   - **Blast Radius**: 1 User (j.smith), 14 Endpoints.
-6. **Recommendation**: Gemini recommends execution of `pb-003`.
-7. **HITL Gate**: The pipeline pauses. The analyst reviews the required actions (Disable `j.smith`, isolate systems, block IPs) and clicks **APPROVE**.
-
-### Phase 3: Execution & Closure (Steps 8–9)
-8. **Action Execution**: `ActionExecutorAgent` is unlocked by the HITL token.
-   - Calls `trigger_playbook` in Google SecOps SOAR.
-   - Appends a full audit worknote to ServiceNow incident `INC0041892`.
-9. **Case Closure**: 
-   - `ActionExecutorAgent` resolves the ServiceNow incident.
-   - Case status in Google SecOps SIEM is updated to **RESOLVED**.
-   - **Final Result**: Incident contained in **45 minutes** (estimated) vs. days in manual SOCs.
-
----
-
-### Dashboard Operations View
-
-```text
-AVG. CONTAINMENT     ACTIVE CRITICALS     AUTO-REMEDIATION
-    2m 14s                  03                   84%
- ↑ 12% vs week          High Alert           Target: 90%
-```
-
-**Pipeline Progress:**
-- [x] 1. Case Ingestion
-- [x] 2. Data Retrieval
-- [x] 3. Playbook RAG
-- [x] 4. Threat Intel
-- [x] 5. Gemini Analysis
-- [x] 6. Recommendation
-- [x] 7. HITL Approval
-- [x] 8. Action Execution
-- [x] 9. Case Closure
+4. **Threat Intel**: `ThreatIntelAgent` enriches the C2 IP `45.33.32.156`, revealing it is malicious and### Phase 2: Analysis & HITL (Steps 5–6)
+5. **Impact & Synthesis**: `ThreatAnalystAgent` (Gemini 2.0 Flash) synthesizes all findings into a CaseAnalysis report.
+6. **HITL Review**: The pipeline pauses (or auto-approves if confidence > 90%). Analyst reviews the actions and clicks **APPROVE**.
+ 
+### Phase 3: Execution & Closure (Steps 7–8)
+7. **Agentic Remediation**: `ActionExecutorAgent` triggers the SOAR playbook and adds audit notes to SNOW.
+8. **Automated Closure**: 
+   - `ActionExecutorAgent` resolves the ServiceNow incident with a full resolution report.
+   - Case status in Google SecOps is updated to **RESOLVED**.
+   - **Final Result**: Incident contained in **< 5 minutes** (Agentic Speed) vs. hours in manual SOCs.
+ 
+ ---
+ 
+ ### Dashboard Operations View
+ 
+ ```text
+ AVG. CONTAINMENT     ACTIVE CRITICALS     AUTO-REMEDIATION
+     2m 14s                  03                   92%
+  ↑ 12% vs week          High Alert           Target: 90%
+ ```
+ 
+ **Pipeline Progress:**
+ - [x] 1. Case Ingestion
+ - [x] 2. Data Enrichment
+ - [x] 3. Playbook Selection
+ - [x] 4. Threat Intel
+ - [x] 5. Impact & Synthesis
+ - [x] 6. HITL Review
+ - [x] 7. Agentic Remediation
+ - [x] 8. Automated Case Closure

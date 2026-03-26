@@ -1,9 +1,8 @@
 """
 parallel_enrichment.py — Tools for concurrent SOC data enrichment.
-
-This module provides a unified tool that triggers multiple READ operations 
-(SecOps, RAG, Threat Intel) in parallel using asyncio.gather, significantly
-reducing latency in the 9-step pipeline.
+ 
+This module performs parallel threat intel and data enrichment to minimize
+latency in the 8-step pipeline.
 """
 
 import asyncio

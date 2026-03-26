@@ -10,7 +10,7 @@
     "resolved_at": "{RESOLVED_AT}",
     "sla_due": "{SLA_DUE}",
     "sla_status": "{SLA_STATUS}",
-    "assigned_to": "Sentinel Orchestrator (AI) + {ANALYST_NAME} (Human Approval)",
+    "assigned_to": "Agentic SecOps Orchestrator (AI) + {ANALYST_NAME} (Human Approval)",
     "assignment_group": "SOC Tier 2",
     "short_description": "{SHORT_DESCRIPTION}",
     "description": "{CASE_DESCRIPTION}",

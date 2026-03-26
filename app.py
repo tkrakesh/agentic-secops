@@ -1,5 +1,5 @@
 """
-Project Sentinel — Streamlit Dashboard (app.py)
+Project Agentic SecOps — Streamlit Dashboard (app.py)
 
 Run:  streamlit run app.py
 """
@@ -54,7 +54,7 @@ import streamlit as st
 
 # ── Page config — must be first Streamlit call ─────────────────────────────────
 st.set_page_config(
-    page_title="Project Sentinel | SOC AIOps",
+    page_title="Agentic SecOps | SOC AIOps",
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -78,7 +78,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .stSidebar .stMarkdown { color: #475569; }
 
 /* Cards */
-.sentinel-card {
+.secops-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
@@ -86,7 +86,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     margin: 8px 0;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
-.sentinel-card-header {
+.secops-card-header {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 1.5px;
@@ -135,8 +135,8 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .metric-delta { font-size: 10px; color: #10b981; margin-top: 2px; font-weight: 500; }
 
 /* Dashboard Components */
-.sentinel-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-.sentinel-card-header { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; color: #2563eb; text-transform: uppercase; margin-bottom: 6px; }
+.secops-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.secops-card-header { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; color: #2563eb; text-transform: uppercase; margin-bottom: 6px; }
 
 .badge-critical { background:#fef2f2; color:#b91c1c; border:1px solid #f87171; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; }
 .badge-high     { background:#fff7ed; color:#c2410c; border:1px solid #fb923c; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:700; }
@@ -346,7 +346,7 @@ def _audit(actor: str, action: str, outcome: str):
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 🛡️ Project Sentinel")
+    st.markdown("## 🛡️ Agentic SecOps")
     st.markdown('<p style="color:#4a9eff;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-top:-8px">SOC AIOps Platform · POC</p>', unsafe_allow_html=True)
     st.divider()
 
@@ -397,8 +397,8 @@ with st.sidebar:
     st.divider()
 
     st.markdown(f"""
-    <div class="sentinel-card" style="margin-top:8px">
-      <div class="sentinel-card-header">Case Details</div>
+    <div class="secops-card" style="margin-top:8px">
+      <div class="secops-card-header">Case Details</div>
       <div style="margin-bottom:6px">{_severity_badge(meta['severity'])}</div>
       <div style="font-size:12px;color:#0f172a;margin-bottom:6px">{meta['desc']}</div>
       <div style="font-size:11px;color:#64748b">🕐 {meta['ts'][:16].replace('T',' ')} UTC</div>
@@ -414,7 +414,7 @@ if "session_service" not in st.session_state:
     st.session_state["session_service"] = InMemorySessionService()
 
 # Main area top: progress bar
-st.markdown("# 🛡️ Project Sentinel")
+st.markdown("# 🛡️ Agentic SecOps")
 st.markdown(f'<p style="color:#64748b;margin-top:-14px">Agentic AIOps · Security Operations Centre · {case_id}</p>', unsafe_allow_html=True)
 
 # Metrics Ribbon
@@ -501,7 +501,7 @@ with main_col:
 
             async def run_pipeline_to_hitl():
                 with st.status(f"🛠️ Orchestrator: Starting Pipeline for {case_id}...", expanded=True) as status:
-                    _audit("Sentinel Orchestrator (AI)", f"Pipeline started for {case_id}", "Initiated")
+                    _audit("SecOps Orchestrator (AI)", f"Pipeline started for {case_id}", "Initiated")
                     async for event in run_adk_pipeline(case_id, session_id, st.session_state["analyst_name"], st.session_state["session_service"]):
                         if event["type"] == "step":
                             st.session_state["pipeline_step"] = event["step"]
@@ -526,7 +526,7 @@ with main_col:
                             st.session_state["active_steps"] = set()
                             if event["state"] == "awaiting":
                                 st.session_state["pipeline_step"] = 7
-                                _audit("Sentinel Orchestrator (AI)", "Pipeline paused for HITL approval", "AWAITING_ANALYST")
+                                _audit("SecOps Orchestrator (AI)", "Pipeline paused for HITL approval", "AWAITING_ANALYST")
                             else:
                                 # For auto_approved, we keep step at 6 or move to a transitioning state
                                 # The auto_approved block below will jump it to 8.
@@ -578,7 +578,7 @@ with main_col:
                 score_pct = int(r.get("relevance_score", 0) * 100)
                 prefix = "🥇" if i == 0 else ("🥈" if i == 1 else "🥉")
                 st.markdown(f"""
-                <div class="sentinel-card">
+                <div class="secops-card">
                   <div style="display:flex;justify-content:space-between;align-items:center">
                     <span style="font-weight:700;color:#e2e8f0">{prefix} {r['playbook_id']} — {r['playbook_name']}</span>
                     <span style="font-size:20px;font-weight:800;color:{'#22c55e' if score_pct>=80 else '#f59e0b'}">{score_pct}%</span>
@@ -604,7 +604,7 @@ with main_col:
                 rep_cls = _rep_color(score)
                 mitre_html = " ".join(f'<span class="mitre-badge">{t}</span>' for t in mitre)
                 st.markdown(f"""
-                <div class="sentinel-card">
+                <div class="secops-card">
                   <div style="display:flex;justify-content:space-between;align-items:flex-start">
                     <div>
                       <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#60a5fa">{itype.upper()}</span>
@@ -640,10 +640,10 @@ with main_col:
             for t in mitre
         )
         st.markdown(f"""
-        <div class="sentinel-card">
+        <div class="secops-card">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
             <div style="flex:2;min-width:200px">
-              <div class="sentinel-card-header">Threat Classification</div>
+              <div class="secops-card-header">Threat Classification</div>
               <div style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:8px">{analysis.get('threat_classification','')}</div>
               <div style="margin-bottom:8px">{_severity_badge(sev)}</div>
               <p style="color:#94a3b8;font-size:13px;line-height:1.6">{analysis.get('case_summary','')}</p>
@@ -652,22 +652,22 @@ with main_col:
               {_conf_bar(conf)}
               <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
                 <div>
-                  <div class="sentinel-card-header" style="margin-bottom:2px">Endpoints</div>
+                  <div class="secops-card-header" style="margin-bottom:2px">Endpoints</div>
                   <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_endpoints',0)}</div>
                 </div>
                 <div>
-                  <div class="sentinel-card-header" style="margin-bottom:2px">Users</div>
+                  <div class="secops-card-header" style="margin-bottom:2px">Users</div>
                   <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_users',0)}</div>
                 </div>
               </div>
             </div>
           </div>
           <div style="margin-top:20px">
-            <div class="sentinel-card-header">MITRE ATT&CK Techniques</div>
+            <div class="secops-card-header">MITRE ATT&CK Techniques</div>
             {mitre_html if mitre_html else '<span style="color:#64748b;font-size:12px">None identified</span>'}
           </div>
           <div style="margin-top:16px;padding:12px;background:#0a1628;border-radius:8px;border-left:3px solid #2563eb">
-            <div class="sentinel-card-header">Recommended Playbook</div>
+            <div class="secops-card-header">Recommended Playbook</div>
             <div style="font-weight:700;color:#60a5fa;font-size:14px">
               {analysis.get('recommended_playbook_id','')} — {analysis.get('recommended_playbook_name','')}
             </div>
@@ -675,7 +675,7 @@ with main_col:
             <div style="color:#64748b;font-size:11px;margin-top:4px">⏱ Est. containment: {analysis.get('estimated_containment_time_minutes',0)} min</div>
           </div>
           <div style="margin-top:12px">
-            <div class="sentinel-card-header">Required Analyst Actions</div>
+            <div class="secops-card-header">Required Analyst Actions</div>
             {''.join(f'<div style="color:#e2e8f0;font-size:12px;padding:2px 0">▸ {a}</div>' for a in analysis.get('analyst_actions_required',[]))}
           </div>
         </div>
@@ -733,7 +733,7 @@ with main_col:
 
         elif hitl == "override":
             st.markdown("---")
-            st.markdown('<div class="sentinel-card"><div class="hitl-title" style="text-align:left">🔄 Override — Select Alternative Playbook</div>', unsafe_allow_html=True)
+            st.markdown('<div class="secops-card"><div class="hitl-title" style="text-align:left">🔄 Override — Select Alternative Playbook</div>', unsafe_allow_html=True)
 
             pb_options = {pid: f"{pid} — {pname}" for pid, pname in ALL_PLAYBOOKS}
             selected_pb = st.selectbox(
@@ -767,7 +767,7 @@ with main_col:
 
         elif hitl == "reject":
             st.markdown("---")
-            st.markdown('<div class="sentinel-card"><div class="hitl-title" style="text-align:left">❌ Reject & Revise — Provide Analyst Feedback</div>', unsafe_allow_html=True)
+            st.markdown('<div class="secops-card"><div class="hitl-title" style="text-align:left">❌ Reject & Revise — Provide Analyst Feedback</div>', unsafe_allow_html=True)
 
             feedback = st.text_area(
                 "Describe what the AI missed or should reconsider:",
@@ -827,7 +827,7 @@ with main_col:
             asyncio.run(run_resume_pipeline())
             st.session_state["running"] = False
             if st.session_state.get("pipeline_step") == 10:
-                _audit("Sentinel Orchestrator (AI)", "Pipeline complete", "RESOLVED")
+                _audit("SecOps Orchestrator (AI)", "Pipeline complete", "RESOLVED")
             st.rerun()
 
         except Exception as e:
@@ -874,7 +874,7 @@ with main_col:
         <div class="snow-card">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
             <div>
-              <div class="sentinel-card-header">ServiceNow Incident</div>
+              <div class="secops-card-header">ServiceNow Incident</div>
               <div class="snow-resolved">🟢 {closure['snow_ref']}</div>
               <div style="font-size:12px;color:#22c55e;margin-top:2px">{sla_str}</div>
             </div>
@@ -888,7 +888,7 @@ with main_col:
             <div><div class="snow-field">Category</div><div class="snow-value">Security — {snow_state.get('subcategory','Cyber Incident')}</div></div>
             <div><div class="snow-field">Threat Class</div><div class="snow-value">{analysis.get('threat_classification','—')}</div></div>
             <div><div class="snow-field">HITL Decision</div><div class="snow-value">{st.session_state.get('hitl_decision','Accepted')}</div></div>
-            <div><div class="snow-field">Assigned</div><div class="snow-value" style="font-size:11px">Sentinel AI + {st.session_state.get('analyst_name','')}</div></div>
+            <div><div class="snow-field">Assigned</div><div class="snow-value" style="font-size:11px">SecOps AI + {st.session_state.get('analyst_name','')}</div></div>
           </div>
           <div style="margin-top:12px">
             <div class="snow-field">Resolution Notes Preview</div>
@@ -918,7 +918,7 @@ with main_col:
         st.markdown(f"""
         <div style="text-align:center;margin-top:24px;padding:16px;background:linear-gradient(135deg,#0a1f0a,#051505);border-radius:12px;border:1px solid #16a34a">
           <div style="font-size:28px">🛡️ ✅</div>
-          <div style="font-size:16px;font-weight:700;color:#22c55e;margin:4px 0">Case Resolved — Project Sentinel</div>
+          <div style="font-size:16px;font-weight:700;color:#22c55e;margin:4px 0">Case Resolved — Agentic SecOps</div>
           <div style="font-size:12px;color:#64748b">Full audit trail written to ServiceNow · {analysis.get('estimated_containment_time_minutes',0)} min containment</div>
         </div>
         """, unsafe_allow_html=True)
@@ -928,21 +928,21 @@ with main_col:
         st.markdown("""
         <div style="text-align:center;padding:60px 40px">
           <div style="font-size:72px;margin-bottom:16px">🛡️</div>
-          <h2 style="color:#e2e8f0;font-weight:800">Project Sentinel</h2>
+          <h2 style="color:#e2e8f0;font-weight:800">Agentic SecOps</h2>
           <p style="color:#64748b;font-size:15px;max-width:500px;margin:0 auto 24px">
             Next-generation agentic AIOps for the Security Operations Centre.<br>
             Select a case from the sidebar and click <strong style="color:#4a9eff">Run Analysis</strong> to begin.
           </p>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:600px;margin:0 auto">
-            <div class="sentinel-card" style="text-align:center">
+            <div class="secops-card" style="text-align:center">
               <div style="font-size:28px">🤖</div>
               <div style="font-size:12px;color:#94a3b8;margin-top:8px">5 specialist AI agents collaborating in real time</div>
             </div>
-            <div class="sentinel-card" style="text-align:center">
+            <div class="secops-card" style="text-align:center">
               <div style="font-size:28px">📚</div>
               <div style="font-size:12px;color:#94a3b8;margin-top:8px">RAG-powered dynamic playbook selection</div>
             </div>
-            <div class="sentinel-card" style="text-align:center">
+            <div class="secops-card" style="text-align:center">
               <div style="font-size:28px">✋</div>
               <div style="font-size:12px;color:#94a3b8;margin-top:8px">Human-in-the-loop approval with full audit trail</div>
             </div>

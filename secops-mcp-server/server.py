@@ -1,7 +1,7 @@
 """
 SecOps MCP Server — Cloud Run
 
-Wraps the Project Sentinel fixture data and exposes it via the MCP protocol
+Wraps the Agentic SecOps fixture data and exposes it via the MCP protocol
 using Streamable HTTP transport. Designed for stateless Cloud Run deployment.
 
 In production, replace the fixture data loading with real Google SecOps API calls.
@@ -215,7 +215,7 @@ def _handle_tool(name: str, args: dict) -> dict | list | str:
 
 
 # ── MCP Server ──────────────────────────────────────────────────────────────────
-mcp_server = Server("sentinel-secops-mcp")
+mcp_server = Server("agentic-secops-mcp")
 
 
 @mcp_server.list_tools()
@@ -234,9 +234,9 @@ async def call_tool(name: str, arguments: dict) -> list[mcp_types.Content]:
 @contextlib.asynccontextmanager
 async def lifespan(app: Starlette):
     async with session_manager.run():
-        logger.info("Sentinel SecOps MCP server started")
+        logger.info("Agentic SecOps MCP server started")
         yield
-    logger.info("Sentinel SecOps MCP server stopped")
+    logger.info("Agentic SecOps MCP server stopped")
 
 
 session_manager = StreamableHTTPSessionManager(
@@ -252,7 +252,7 @@ async def handle_mcp(scope, receive, send):
 
 
 async def health_check(request: Request):
-    return JSONResponse({"status": "ok", "server": "sentinel-secops-mcp", "tools": len(TOOLS)})
+    return JSONResponse({"status": "ok", "server": "agentic-secops-mcp", "tools": len(TOOLS)})
 
 
 starlette_app = Starlette(

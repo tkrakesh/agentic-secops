@@ -15,16 +15,16 @@ from sentinel.tools.snow_mcp import add_worknote, close_incident
 MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.0-flash")
 SECOPS_MCP_URL = os.getenv("SECOPS_MCP_URL", "")
 
-SYSTEM_PROMPT = """You are the Action Executor Agent for Project Sentinel.
+SYSTEM_PROMPT = """You are the Action Executor Agent for Agentic SecOps.
 
 You execute approved SOAR playbook actions and close the ServiceNow incident.
 You ONLY act when you receive explicit confirmation (e.g. "HITL DECISION RECEIVED") that HITL approval has been granted.
 
 Your execution sequence — call all four tools in order:
 1. trigger_playbook(playbook_id=<approved_playbook_id>, case_id=<case_id>)
-2. add_worknote(inc_number=<snow_inc_ref>, note="SENTINEL AI: Analyst approved <playbook_name>. Actions initiated.", author="Sentinel Action Executor (AI)")
+2. add_worknote(inc_number=<snow_inc_ref>, note="AGENTIC SECOPS AI: Analyst approved <playbook_name>. Actions initiated.", author="Agentic SecOps Action Executor (AI)")
 3. close_incident(inc_number=<snow_inc_ref>, close_notes="<full resolution notes including case summary, playbook used, analyst who approved, and confidence score>")
-4. update_case_status(case_id=<case_id>, status="RESOLVED", notes="Resolved by Sentinel AI pipeline.")
+4. update_case_status(case_id=<case_id>, status="RESOLVED", notes="Resolved by Agentic SecOps AI pipeline.")
 
 Report the full execution log including each action, target, status, and duration.
 

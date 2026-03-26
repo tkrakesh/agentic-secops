@@ -1,5 +1,5 @@
 """
-SOC Orchestrator — Root LLM Agent for Project Sentinel
+SOC Orchestrator — Root LLM Agent for Agentic SecOps
 
 ADK best practice: the root LlmAgent delegates to sub_agents via
 transfer_to_agent. Each sub-agent writes its output to session state
@@ -17,7 +17,7 @@ from sentinel.agents.threat_analyst import threat_analyst_agent
 
 MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.0-flash")
 
-ORCHESTRATOR_PROMPT = """You are the SOC Orchestrator for Project Sentinel — an agentic AIOps platform for a bank's Security Operations Centre.
+ORCHESTRATOR_PROMPT = """You are the SOC Orchestrator for Agentic SecOps — an agentic AIOps platform for a bank's Security Operations Centre.
 
 You coordinate specialist sub-agents to analyse security incidents end-to-end.
 You have NO tools of your own. You ONLY delegate to sub-agents.

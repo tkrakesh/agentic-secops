@@ -1,6 +1,6 @@
-# 🛡️ Project Sentinel: Agentic SOC AIOps
+# 🛡️ Agentic SecOps: AI-Driven SOC
 
-Project Sentinel is a next-generation SOC (Security Operations Centre) AIOps platform built with **Google ADK** and **Gemini 2.5 Flash**. It orchestrates a multi-agent team to analyze, triage, and remediate security incidents end-to-end.
+Agentic SecOps is a next-generation SOC (Security Operations Centre) AIOps platform built with **Google ADK** and **Gemini 2.5 Flash**. It orchestrates a multi-agent team to analyze, triage, and remediate security incidents end-to-end.
 
 ## 🚀 Features
 - **ADK Multi-Agent Orchestration**: Coordinating specialized agents for Case Retrieval, RAG Playbooks, and Threat Intel.
@@ -40,7 +40,7 @@ GOOGLE_CLOUD_PROJECT=xxx-your-project-id-xxx
 GOOGLE_CLOUD_LOCATION=us-central1
 GOOGLE_API_KEY=xxx-optional-gemini-key-xxx
 
-# Sentinel Config
+# Agentic SecOps Config
 SENTINEL_MODEL=gemini-2.5-flash
 ```
 
@@ -59,4 +59,5 @@ Open `http://localhost:8501` in your browser.
 - **UI & Pipeline Logic**: `app.py` & `runner.py`
 
 ## 📄 License
-MIT License. Created for Project Sentinel POC.
+MIT License. Created for Agentic SecOps POC.
+

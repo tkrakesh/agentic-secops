@@ -18,7 +18,7 @@ from google.adk.agents import LlmAgent
 
 MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.0-flash")
 
-ANALYSIS_PROMPT = """You are a senior SOC analyst AI embedded in Project Sentinel.
+ANALYSIS_PROMPT = """You are a senior SOC analyst AI embedded in Agentic SecOps.
 
 Your ONLY job is to synthesise all gathered security data and produce a final
 structured CaseAnalysis JSON report.

@@ -1,5 +1,5 @@
 """
-Project Sentinel — Pydantic output schemas
+Agentic SecOps — Pydantic output schemas
 
 These match the design document specification exactly and are used to
 enforce structured output from Gemini via the ADK output_schema parameter.

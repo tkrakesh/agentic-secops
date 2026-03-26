@@ -1,4 +1,4 @@
-# Project Sentinel — Solution Architecture
+# Agentic SecOps — Solution Architecture
 
 > **Version:** 1.1 · **Classification:** Internal POC · **Date:** March 2026
 
@@ -6,7 +6,7 @@
 
 ## 1. Overview
 
-**Project Sentinel** is an agentic AIOps platform for a bank's Security Operations Centre (SOC). It automates the end-to-end security incident lifecycle — from alert ingestion to case closure — using a multi-agent AI system built on Google ADK and Gemini, with Human-in-the-Loop (HITL) governance at every action gate.
+**Agentic SecOps** is an agentic AIOps platform for a bank's Security Operations Centre (SOC). It automates the end-to-end security incident lifecycle — from alert ingestion to case closure — using a multi-agent AI system built on Google ADK and Gemini, with Human-in-the-Loop (HITL) governance at every action gate.
 
 The system reduces mean-time-to-respond (MTTR) by autonomously gathering case data, identifying SOAR playbooks via RAG, enriching IoCs with threat intelligence, producing a structured AI analysis, and executing approved remediation actions — all within a single orchestrated pipeline.
 
@@ -16,7 +16,7 @@ The system reduces mean-time-to-respond (MTTR) by autonomously gathering case da
 
 ```
 +-----------------------------------------------------------------+
-|                        PROJECT SENTINEL                         |
+|                        AGENTIC SECOPS                          |
 |                   Agentic SOC AIOps Platform                    |
 +------------------------------+----------------------------------+
                                |

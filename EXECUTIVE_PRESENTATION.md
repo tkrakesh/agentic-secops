@@ -1,10 +1,10 @@
-# 🛡️ Project Sentinel: Executive Solution Overview
+# 🛡️ Agentic SecOps: Executive Solution Overview
 **Agentic AIOps Platform · Powered by Gemini 2.0 & Google ADK**
 
 ---
 
 ## 🏗️ 1. Architecture: The Agentic Core
-Project Sentinel is built on a **Hybrid Agentic Architecture** that combines three core Google/Industry standards to automate the Security Operations Center (SOC).
+Agentic SecOps is built on a **Hybrid Agentic Architecture** that combines three core Google/Industry standards to automate the Security Operations Center (SOC).
 
 ```mermaid
 graph TD

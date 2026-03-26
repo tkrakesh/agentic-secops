@@ -93,7 +93,7 @@ def update_incident(inc_number: str, fields: dict) -> dict:
     return {"updated": True, "number": inc_number, "updated_fields": list(fields.keys())}
 
 
-def add_worknote(inc_number: str, note: str, author: str = "Sentinel AI") -> dict:
+def add_worknote(inc_number: str, note: str, author: str = "Agentic SecOps AI") -> dict:
     """Add a timestamped work note to a ServiceNow incident.
 
     Args:
@@ -139,7 +139,7 @@ def close_incident(inc_number: str, close_notes: str, close_code: str = "Resolve
         "close_code": close_code,
         "close_notes": close_notes,
         "resolved_at": resolved_at,
-        "resolved_by": "Sentinel Orchestrator (AI)",
+        "resolved_by": "Agentic SecOps Orchestrator (AI)",
     })
     return {
         "closed": True,

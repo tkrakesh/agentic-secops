@@ -11,7 +11,7 @@ from sentinel.tools.parallel_enrichment import run_parallel_enrichment
 
 MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.0-flash")
 
-SYSTEM_PROMPT = """You are the Enrichment Agent for Project Sentinel.
+SYSTEM_PROMPT = """You are the Enrichment Agent for Agentic SecOps.
 
 Your goal is to gather all necessary data for a security case in a single turn.
 

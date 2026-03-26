@@ -1,1 +1,1 @@
-"""Tools package for Project Sentinel."""
+"""Tools package for Agentic SecOps."""

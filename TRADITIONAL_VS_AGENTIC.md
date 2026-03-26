@@ -1,7 +1,7 @@
-# 🛡️ Traditional SOC vs. Project Sentinel (Agentic)
+# 🛡️ Traditional SOC vs. Agentic SecOps (Agentic)
 **Comparative Value Proposition for Case: CASE-001 (Lateral Movement)**
 
-This document highlights the efficiency gains of moving from a legacy "Manual Script" SOC to the **Project Sentinel Agentic AIOps** platform.
+This document highlights the efficiency gains of moving from a legacy "Manual Script" SOC to the **Agentic SecOps Agentic AIOps** platform.
 
 ---
 
@@ -21,8 +21,8 @@ In a standard SOC, handling a Domain Admin compromise usually takes **2 to 4 hou
 
 ---
 
-### 2. The Project Sentinel Approach (Agentic Response)
-With Project Sentinel, exactly the same scenario is compressed into **under 5 minutes**:
+### 2. The Agentic SecOps Approach (Agentic Response)
+With Agentic SecOps, exactly the same scenario is compressed into **under 5 minutes**:
 
 | Step | Activity | Est. Time | The "Agentic Edge" |
 | :--- | :--- | :--- | :--- |
@@ -37,7 +37,7 @@ With Project Sentinel, exactly the same scenario is compressed into **under 5 mi
 
 ### 3. Executive Value Summary
 
-| Metric | Traditional SOC | Project Sentinel |
+| Metric | Traditional SOC | Agentic SecOps |
 | :--- | :--- | :--- |
 | **Latency (MTTR)** | 2–4 Hours | **< 5 Minutes** (90%+ Reduction) |
 | **Analyst Toil** | High (5+ tools/tabs) | **Zero (Unified Workspace)** |
@@ -47,4 +47,4 @@ With Project Sentinel, exactly the same scenario is compressed into **under 5 mi
 ---
 
 ### 4. Operational Impact
-By automating the "toil" of data gathering and correlation, Project Sentinel allows your senior analysts to focus purely on the **Decision Phase**, effectively increasing your SOC's capacity without increasing headcount. 🛡️⚡✅
+By automating the "toil" of data gathering and correlation, Agentic SecOps allows your senior analysts to focus purely on the **Decision Phase**, effectively increasing your SOC's capacity without increasing headcount. 🛡️⚡✅

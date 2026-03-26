@@ -1,6 +1,7 @@
-# 🚀 Project Sentinel Deployment Guide
+# 🚀 Agentic SecOps Deployment Guide
 
-This guide covers how to deploy Project Sentinel (Streamlit + Google ADK) to **Google Cloud Platform** using **Cloud Run**, ensuring native access to Vertex AI models.
+This guide covers how to deploy Agentic SecOps (Streamlit + Google ADK) to **Google Cloud Platform** using **Cloud Run**, ensuring native access to Vertex AI models.
+
 
 ## 🏗️ Deployment Architecture
 - **Front-end / Orchestration**: Streamlit App (Containerized on Cloud Run)
@@ -44,7 +45,7 @@ The Cloud Run service needs permission to call Vertex AI.
 ```bash
 # Create a dedicated Service Account
 gcloud iam service-accounts create sentinel-runner-sa \
-    --display-name="Project Sentinel Cloud Run Service Account"
+    --display-name="Agentic SecOps Cloud Run Service Account"
 
 # Grant Vertex AI User role
 gcloud projects add-iam-policy-binding $PROJECT_ID \

@@ -38,12 +38,12 @@ AGENT_MAP = {
     "ANALYSISAGENT": "ThreatAnalystAgent",
     "GEMINIANALYSISAGENT": "ThreatAnalystAgent",
     "ACTION-EXEC": "ActionExecutorAgent",
-    "SYSTEM": "Sentinel System"
+    "SYSTEM": "Agentic SecOps System"
 }
 
 def _get_agent_name(raw_name: str) -> str:
     """Standardize agent names for professional logging."""
-    if not raw_name: return "Sentinel"
+    if not raw_name: return "Agentic SecOps"
     n = raw_name.upper()
     return AGENT_MAP.get(n, n.capitalize())
 
@@ -308,7 +308,7 @@ async def resume_adk_pipeline(
                         yield {"type": "state", "key": "execution", "data": execution}
                         yield {"type": "log", "agent": "ActionExecutorAgent", "message": f"✓ Playbook triggered."}
                     elif name == "add_worknote":
-                        yield {"type": "log", "agent": "ActionExecutorAgent", "message": "✓ Audit worknote added to ServiceNow."}
+                        yield {"type": "log", "agent": "ActionExecutorAgent", "message": "✓ Audit worknote added to ServiceNow (Agentic SecOps)."}
                     elif name == "close_incident":
                         closure["close_result"] = resp
                         closure["close_notes"] = resp.get("close_notes", "")

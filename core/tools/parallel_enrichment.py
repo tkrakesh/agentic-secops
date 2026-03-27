@@ -13,11 +13,11 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 # Import existing tool functions
-from sentinel.tools.secops_mcp import (
+from core.tools.secops_mcp import (
     get_case, list_alerts, get_raw_logs, get_affected_assets,
 )
-from sentinel.tools.rag_tool import query_playbook_corpus
-from sentinel.tools.gti_mcp import bulk_enrich_iocs
+from core.tools.rag_tool import query_playbook_corpus
+from core.tools.gti_mcp import bulk_enrich_iocs
 
 def _now():
     return datetime.now(timezone.utc).strftime("%H:%M:%S")
@@ -65,7 +65,7 @@ async def run_parallel_enrichment(case_id: str, case_summary_for_rag: str = ""):
         print(f"[{_now()}] [RUNNING:STEP:4] Enriching Threat Intel...")
         try:
             # Avoid circular import with runner.py
-            cases_dir = Path(__file__).parent.parent / "data" / "cases"
+            cases_dir = Path(__file__).parent.parent.parent / "data" / "cases"
             fname = case_id.lower().replace("-", "_") + ".json"
             case_path = cases_dir / fname
             

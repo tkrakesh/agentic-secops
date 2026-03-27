@@ -11,11 +11,11 @@ from __future__ import annotations
 import os
 from google.adk.agents import LlmAgent
 
-from sentinel.agents.action_executor import action_executor_agent
-from sentinel.agents.enrichment import enrichment_agent
-from sentinel.agents.threat_analyst import threat_analyst_agent
+from core.agents.action_executor import action_executor_agent
+from core.agents.enrichment import enrichment_agent
+from core.agents.threat_analyst import threat_analyst_agent
 
-MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.0-flash")
+MODEL = os.getenv("SECOPS_MODEL_PRO", "gemini-2.5-pro")
 
 ORCHESTRATOR_PROMPT = """You are the SOC Orchestrator for Agentic SecOps — an agentic AIOps platform for a bank's Security Operations Centre.
 
@@ -34,17 +34,16 @@ STEP 2 — Delegate to ThreatAnalystAgent.
   Wait for it to return the JSON before proceeding.
 
 STEP 4 — Action Execution:
-  When the user approves or says "HITL DECISION RECEIVED", "approved", "go ahead", or "proceed":
-  1. DO NOT repeat the analysis JSON.
-  2. Immediately delegate to ActionExecutorAgent. 
-  3. IMPORTANT: In your transfer message to ActionExecutorAgent, you MUST include the text: "HITL Approval Confirmed: Proceed with remediation."
-  4. Pass the recommended_playbook_id, case_id, and snow_incident_ref in the message.
+  When the user approves or says "Approved", "Accepted", or "go ahead":
+  1. Immediately delegate to ActionExecutorAgent. 
+  2. IMPORTANT: In your transfer message to ActionExecutorAgent, you MUST include the text: "HITL Approval Confirmed: Proceed with remediation."
+  3. Pass the recommended_playbook_id, case_id, and snow_incident_ref in the message.
 
 CRITICAL RULES:
 - Complete each step fully before starting the next.
 - Never call any tools yourself — only delegate to sub-agents.
-- After ThreatAnalystAgent completes, output the JSON and the AWAITING_HITL_APPROVAL signal.
-- Once approval is received (in any form), you MUST transfer to ActionExecutorAgent with the "HITL Approval Confirmed" signal.
+- After ThreatAnalystAgent completes, it will output the JSON and the AWAITING_HITL_APPROVAL signal.
+- Once approval is received, you MUST transfer to ActionExecutorAgent.
 """.strip()
 
 soc_orchestrator = LlmAgent(
@@ -54,6 +53,7 @@ soc_orchestrator = LlmAgent(
         "ThreatAnalystAgent, and ActionExecutorAgent in a strict "
         "sequential pipeline with HITL governance."
     ),
+    # model=os.getenv("SECOPS_MODEL_PRO", "gemini-2.5-pro"),
     model=MODEL,
     instruction=ORCHESTRATOR_PROMPT,
     sub_agents=[

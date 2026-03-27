@@ -41,7 +41,7 @@ GOOGLE_CLOUD_LOCATION=us-central1
 GOOGLE_API_KEY=xxx-optional-gemini-key-xxx
 
 # Agentic SecOps Config
-SENTINEL_MODEL=gemini-2.0-flash
+SECOPS_MODEL=gemini-2.0-flash
 ```
 
 ### 4. Run the Application
@@ -53,10 +53,11 @@ Open `http://localhost:8501` in your browser.
 ---
 
 ## 🏗️ Architecture
-- **Root Orchestrator**: `sentinel/agents/orchestrator.py`
-- ** spécialistes**: `sentinel/agents/`
-- **Tools (Mock/Real)**: `sentinel/tools/`
+- **Root Orchestrator**: `core/agents/orchestrator.py`
+- ** spécialistes**: `core/agents/`
+- **Tools (Mock/Real)**: `core/tools/`
 - **UI & Pipeline Logic**: `app.py` & `runner.py`
+- **Fixtures & Data**: `data/`
 
 ## 📄 License
 MIT License. Created for Agentic SecOps POC.

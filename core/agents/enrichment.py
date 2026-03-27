@@ -7,9 +7,9 @@ of the SOC pipeline concurrently.
 import os
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
-from sentinel.tools.parallel_enrichment import run_parallel_enrichment
+from core.tools.parallel_enrichment import run_parallel_enrichment
 
-MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.0-flash")
+MODEL = os.getenv("SECOPS_MODEL_FLASH", "gemini-2.5-flash")
 
 SYSTEM_PROMPT = """You are the Enrichment Agent for Agentic SecOps.
 

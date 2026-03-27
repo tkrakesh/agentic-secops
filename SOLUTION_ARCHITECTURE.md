@@ -45,12 +45,12 @@ The system reduces mean-time-to-respond (MTTR) by autonomously gathering case da
 +----------------------------------+--------------------------------------+
                                    |  runner.py (ADK Runner event stream)
                                    |
-+----------------------------------+--------------------------------------+
-|  AGENTIC LAYER  (Google ADK + Gemini 2.5 Flash)                         |
++-------------------------------------------------------------------------+
+|  AGENTIC LAYER  (Google ADK + Gemini 2.0 Flash)                         |
 |                                                                         |
 |         +----------------------------------------------------+          |
 |         |           SOCOrchestrator (root_agent)             |          |
-|         |         sentinel/agents/orchestrator.py            |          |
+|         |          core/agents/orchestrator.py               |          |
 |         +-----+----------+----------+----------+------------+          |
 |               |          |          |          |                        |
 |        +------+--+  +----+----+  +--+------+  +------+-------+         |
@@ -66,7 +66,7 @@ The system reduces mean-time-to-respond (MTTR) by autonomously gathering case da
              |                 |           |            |
 +------------|-----------------|-----------|------------|----------------+
 |  DATA LAYER                                                             |
-|  [ cases/ ]  [ playbooks/ ]  [ ioc/ ]  [ snow/ ]  [ soar_actions ]     |
+|  [ data/cases/ ]  [ data/playbooks/ ]  [ data/ioc/ ]                    |
 +-------------------------------------------------------------------------+
 ```
 
@@ -86,7 +86,7 @@ flowchart TD
     UI -->|step calls| RUNNER
     RUNNER -->|orchestrates| ROOT
 
-    subgraph ADK["Google ADK — Agentic Layer  sentinel/"]
+    subgraph ADK["Google ADK — Agentic Layer  core/"]
         direction TB
 
         ROOT["SOCOrchestrator\n--- root_agent ---\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/orchestrator.py\nSchema: Enforced via Prompt\noutput_key: case_analysis\n\nPipeline Sequence:\n1. Case Retrieval\n2. Playbook RAG\n3. Threat Intel Enrichment\n4. Threat Analyst Analysis\n5. HITL Approval Gate\n6. Action Execution"]
@@ -112,7 +112,7 @@ flowchart TD
     HITL -->|approved| AE
     HITL -->|override or reject| ROOT
 
-    subgraph TL["Tool Layer — ADK FunctionTools  sentinel/tools/"]
+    subgraph TL["Tool Layer — ADK FunctionTools  core/tools/"]
         direction LR
 
         SMCP["SecOps MCP\nsecops_mcp.py\n---\nREAD: get_case\nREAD: list_alerts\nREAD: get_raw_logs\nREAD: get_affected_assets\nWRITE: trigger_playbook\nWRITE: update_case_status"]
@@ -130,7 +130,7 @@ flowchart TD
     AE -->|"FunctionTool x2"| SMCP
     AE -->|"FunctionTool x3"| SNOWMCP
 
-    subgraph DL["Data Layer  sentinel/data/"]
+    subgraph DL["Data Layer  data/"]
         direction LR
         DC["cases/\ncase_001.json  case_002.json\ncase_001_logs.txt  case_002_logs.txt\nCEF syslog + case metadata"]
         DP["playbooks/\npb_003.md  pb_007.md  pb_012.md\npb_019.md  pb_024.md\nSOAR playbook markdown corpus"]
@@ -185,7 +185,7 @@ ActionExecutorAgent
 
 | Entry Point | Purpose |
 |---|---|
-| `sentinel/agent.py` | ADK-discoverable root. Sets `root_agent = soc_orchestrator`. Used by `adk web` and `adk run`. |
+| `core/agent.py` | ADK-discoverable root. Sets `root_agent = soc_orchestrator`. Used by `adk web` and `adk run`. |
 | `runner.py` | Streamlit pipeline integration. Uses `google.adk.runners.Runner` to execute `soc_orchestrator` and yields ADK `Event`s to drive the UI. |
 
 ---
@@ -238,7 +238,7 @@ class CaseAnalysis(BaseModel):
     playbook_rationale:                 str          # 1-2 sentences
     confidence_score:                   float        # 0.0-1.0
     ioc_enrichments:                    list[IoCEnrichment]
-    analyst_actions_required:           list[str]    # top 3-5 ordered actions
+    actions_to_approve:                 list[str]    # top 3-5 ordered actions
     estimated_containment_time_minutes: int
 ```
 
@@ -256,7 +256,7 @@ class CaseAnalysis(BaseModel):
 
 ## 7. Tool Layer (MCP-Style FunctionTools)
 
-### 7.1 SecOps MCP  (`sentinel/tools/secops_mcp.py`)
+### 7.1 SecOps MCP  (`core/tools/secops_mcp.py`)
 
 Simulates the **Google SecOps SIEM/SOAR MCP server**. In production, replaced by a live SecOps MCP connection.
 
@@ -269,7 +269,7 @@ Simulates the **Google SecOps SIEM/SOAR MCP server**. In production, replaced by
 | `trigger_playbook(playbook_id, case_id)` | **WRITE** | Initiates SOAR playbook execution |
 | `update_case_status(case_id, status, notes)` | **WRITE** | Updates case state to RESOLVED/CLOSED |
 
-### 7.2 RAG Tool  (`sentinel/tools/rag_tool.py`)
+### 7.2 RAG Tool  (`core/tools/rag_tool.py`)
 
 Semantic search over the SOAR playbook corpus. In production, replaced by a single call to the **Vertex AI RAG Engine API** — identical function signature and return schema.
 
@@ -277,7 +277,7 @@ Semantic search over the SOAR playbook corpus. In production, replaced by a sing
 |---|---|
 | `query_playbook_corpus(query_text, top_k=3)` | TF-IDF keyword overlap + domain threat-term boosting; returns ranked list of PlaybookMatch dicts |
 
-### 7.3 GTI/VirusTotal MCP  (`sentinel/tools/gti_mcp.py`)
+### 7.3 GTI/VirusTotal MCP  (`core/tools/gti_mcp.py`)
 
 Simulates **Google Threat Intelligence** and **VirusTotal Enterprise** API responses.
 
@@ -287,7 +287,7 @@ Simulates **Google Threat Intelligence** and **VirusTotal Enterprise** API respo
 | `enrich_hash(file_hash)` | MD5/SHA256 | File name, malware family, campaign, MITRE techniques, verdict |
 | `enrich_domain(domain)` | Domain | Resolved IPs, registration date, malware family, MITRE techniques |
 
-### 7.4 ServiceNow MCP  (`sentinel/tools/snow_mcp.py`)
+### 7.4 ServiceNow MCP  (`core/tools/snow_mcp.py`)
 
 Simulates **ServiceNow ITSM REST API v2**. In production, replaced by real ServiceNow REST API calls via MCP.
 
@@ -349,7 +349,7 @@ This is enforced at the agent instruction level — the agent will refuse to cal
 | Component | Technology | Notes |
 |---|---|---|
 | **AI Framework** | Google ADK (`google-adk`) | Multi-agent orchestration, FunctionTools, LlmAgent |
-| **LLM** | Gemini 2.5 Flash | Configurable via `SENTINEL_MODEL` env var |
+| **LLM** | Gemini 2.5 Flash | Configurable via `SECOPS_MODEL` env var |
 | **LLM Access** | Google AI Studio API / Vertex AI | Toggled via `GOOGLE_GENAI_USE_VERTEXAI` flag |
 | **Structured Output** | Pydantic + ADK `output_schema` | Enforces JSON schema on Gemini responses |
 | **Playbook Search (POC)** | TF-IDF with domain boosting | Local; identical interface to Vertex AI RAG Engine |
@@ -369,29 +369,29 @@ Agentic-SecOps/
 +-- requirements.txt
 +-- .env / .env.example
 |
-+-- sentinel/
-    +-- agent.py                    # ADK root_agent entry point
-    +-- models/                     # Pydantic: CaseAnalysis, IoCEnrichment, PlaybookMatch
-    |   +-- case_models.py
-    |
-    +-- agents/
-    |   +-- orchestrator.py         # SOCOrchestrator  (root LlmAgent)
-    |   +-- enrichment.py           # EnrichmentAgent (Step 2,3,4)
-    |   +-- threat_analyst.py       # ThreatAnalystAgent (Step 5,6)
-    |   +-- action_executor.py      # ActionExecutorAgent  (HITL-gated WRITE)
-    |
-    +-- tools/
-    |   +-- secops_mcp.py           # Mock Google SecOps MCP (READ + WRITE)
-    |   +-- rag_tool.py             # Local TF-IDF playbook search (-> Vertex AI RAG)
-    |   +-- gti_mcp.py              # Mock GTI / VirusTotal MCP (READ)
-    |   +-- snow_mcp.py             # Mock ServiceNow MCP (READ + WRITE)
-    |
-    +-- data/
-        +-- cases/                  # Case JSON fixtures + CEF log files
-        +-- playbooks/              # SOAR playbook markdown corpus (pb_003 ... pb_024)
-        +-- ioc/                    # IoC threat intel fixtures (IPs, hashes, domains)
-        +-- snow/                   # SNOW incident template fixtures
-        +-- soar_actions.json       # SOAR playbook action step definitions
++-- core/
+|   +-- agent.py                    # ADK root_agent entry point
+|   +-- models/                     # Pydantic: CaseAnalysis, IoCEnrichment, PlaybookMatch
+|   |   +-- case_models.py
+|   |
+|   +-- agents/
+|   |   +-- orchestrator.py         # SOCOrchestrator  (root LlmAgent)
+|   |   +-- enrichment.py           # EnrichmentAgent (Step 2,3,4)
+|   |   +-- threat_analyst.py       # ThreatAnalystAgent (Step 5,6)
+|   |   +-- action_executor.py      # ActionExecutorAgent  (HITL-gated WRITE)
+|   |
+|   +-- tools/
+|       +-- secops_mcp.py           # Mock Google SecOps MCP (READ + WRITE)
+|       +-- rag_tool.py             # Local TF-IDF playbook search (-> Vertex AI RAG)
+|       +-- gti_mcp.py              # Mock GTI / VirusTotal MCP (READ)
+|       +-- snow_mcp.py             # Mock ServiceNow MCP (READ + WRITE)
+|
++-- data/
+    +-- cases/                      # Case JSON fixtures + CEF log files
+    +-- playbooks/                  # SOAR playbook markdown corpus (pb_003 ... pb_024)
+    +-- ioc/                        # IoC threat intel fixtures (IPs, hashes, domains)
+    +-- snow/                       # SNOW incident template fixtures
+    +-- soar_actions.json           # SOAR playbook action step definitions
 ```
 
 

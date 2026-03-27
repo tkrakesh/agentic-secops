@@ -60,7 +60,7 @@ def _query_agentspace(query_text: str, top_k: int) -> list[dict]:
 
 
 # ── POC: Local TF-IDF ───────────────────────────────────────────────────────────
-PB_DIR = Path(__file__).parent.parent / "data" / "playbooks"
+PB_DIR = Path(__file__).parent.parent.parent / "data" / "playbooks"
 
 _corpus_cache = {}
 _vocab = set()

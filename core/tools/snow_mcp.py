@@ -10,7 +10,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-SNOW_FILE = Path(__file__).parent.parent / "data" / "snow" / "inc_template.json"
+SNOW_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "snow" / "inc_template.json"
 
 # In-memory SNOW state — simulates a live SNOW instance for the demo
 _snow_state: dict = {}

@@ -2,7 +2,7 @@
 ADK Agent: ThreatAnalystAgent
 -------------------------------
 Specialist agent for reasoning over all collected data to produce the final
-structured CaseAnalysis JSON.
+structured CaseAnalysis JSON report.
 
 No tools — pure synthesis from session state populated by prior agents.
 
@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 from google.adk.agents import LlmAgent
 
-MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.0-flash")
+MODEL = os.getenv("SECOPS_MODEL_PRO", "gemini-2.5-pro")
 
 ANALYSIS_PROMPT = """You are a senior SOC analyst AI embedded in Agentic SecOps.
 
@@ -33,7 +33,7 @@ SESSION STATE — populated by the specialist agents before you were called:
 HITL REVISION — check for these optional keys in session state:
   - hitl_override_playbook : If present, use this as recommended_playbook_id.
   - hitl_analyst_feedback  : If present, revise case_summary and
-                             analyst_actions_required to address the feedback.
+                             actions_to_approve to address the feedback.
 
 OUTPUT — produce a single raw JSON object with EXACTLY these fields:
 {
@@ -52,7 +52,6 @@ OUTPUT — produce a single raw JSON object with EXACTLY these fields:
   "confidence_score": 0.91,
   "recommend_auto_approval": false,
   "is_false_positive": false,
-  "reasoning_for_recommendation": "High severity lateral movement requires manual investigation and containment verification.",
   "ioc_enrichments": [
     {
       "indicator": "45.33.32.156",
@@ -64,7 +63,7 @@ OUTPUT — produce a single raw JSON object with EXACTLY these fields:
       "mitre_techniques": ["T1071.001", "T1102"]
     }
   ],
-  "analyst_actions_required": [
+  "actions_to_approve": [
     "Immediately disable the compromised domain admin account",
     "Isolate all affected workstations from the network",
     "Reset credentials for all impacted users",
@@ -93,8 +92,22 @@ FALSE POSITIVE / AUTHORIZED ACTIVITY LOGIC:
   4. Set "severity": "Low" or "Medium" (as per original case).
   5. Recommend auto-approval if it's a known benign activity.
 
-Output ONLY the raw JSON object. No preamble, no markdown fences, no explanation.
-After outputting the JSON, transfer back to SOCOrchestrator."""
+Output THE raw JSON object first. No preamble, no markdown fences, no explanation.
+
+After the JSON, provide a structured summary for the user following EXACTLY this format:
+
+### **Recommended Playbook**
+- **[recommended_playbook_id]** — **[recommended_playbook_name]**
+- [playbook_rationale]
+- ⏱ **Est. containment:** [estimated_containment_time_minutes] min
+
+### **Provide approval to perform the following actions**
+▸ [Action 1]
+▸ [Action 2]
+▸ ... (Include all actions_to_approve)
+
+MANDATORY: You must end with the exact phrase: "I am AWAITING_HITL_APPROVAL. Please type 'Approve' to execute the containment playbook or provide feedback to revise the analysis."
+""".strip()
 
 threat_analyst_agent = LlmAgent(
     name="ThreatAnalystAgent",
@@ -106,7 +119,5 @@ threat_analyst_agent = LlmAgent(
     model=MODEL,
     instruction=ANALYSIS_PROMPT,
     output_key="case_analysis",
-    # CRITICAL: prevent lateral transfer to peer agents.
-    # Must return to SOCOrchestrator after producing the CaseAnalysis JSON.
     disallow_transfer_to_peers=True,
 )

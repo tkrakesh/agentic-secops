@@ -31,13 +31,6 @@ AGENT_MAP = {
     "ENRICHMENTAGENT": "EnrichmentAgent",
     "THREATANALYSTAGENT": "ThreatAnalystAgent",
     "ACTIONEXECUTORAGENT": "ActionExecutorAgent",
-    # Legacy / Fallback mapping
-    "ORCHESTRATOR": "SOCOrchestrator",
-    "ENRICHMENT": "EnrichmentAgent",
-    "AGENT": "ThreatAnalystAgent",
-    "ANALYSISAGENT": "ThreatAnalystAgent",
-    "GEMINIANALYSISAGENT": "ThreatAnalystAgent",
-    "ACTION-EXEC": "ActionExecutorAgent",
     "SYSTEM": "Agentic SecOps System"
 }
 
@@ -50,30 +43,13 @@ def _get_agent_name(raw_name: str) -> str:
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
-from sentinel.agents.orchestrator import soc_orchestrator
-from sentinel.agents.chat_agent import soc_chat_agent
-
-async def run_soc_chat(user_input: str, session_id: str, analyst_name: str, service: InMemorySessionService):
-    """Run a single conversational turn with the SOC Chat Agent."""
-    runner = Runner(
-        app_name="sentinel-soc",
-        agent=soc_chat_agent,
-        session_service=service
-    )
-    content = types.Content(role="user", parts=[types.Part.from_text(text=user_input)])
-    async for event in runner.run_async(
-        session_id=session_id,
-        user_id=analyst_name,
-        new_message=content
-    ):
-        if hasattr(event, "text"):
-            yield {"type": "text", "text": event.text}
+from core.agents.orchestrator import soc_orchestrator
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def _load_case_data(case_id: str) -> dict:
-    data_dir = Path(__file__).parent / "sentinel" / "data" / "cases"
+    data_dir = Path(__file__).parent / "data" / "cases"
     fname = case_id.lower().replace("-", "_") + ".json"
     if not (data_dir / fname).exists():
         return {}
@@ -119,7 +95,7 @@ def _check_auto_approve(case_id, analysis_data, case_data):
     # User Policy: Auto-remediate if severity is MEDIUM or LOW and confidence > 90%.
     # Also auto-approve specific low-risk administrative cases (CASE-006/009).
     should_auto = (("LOW" in current_sev or "MEDIUM" in current_sev) and confidence >= 0.90) or (case_id in ["CASE-006", "CASE-009"])
-    return should_auto, current_sev, analysis_data.get("reasoning_for_recommendation", "N/A")
+    return should_auto, current_sev, analysis_data.get("playbook_rationale", "N/A")
 
 async def run_adk_pipeline(
     case_id: str,
@@ -285,7 +261,7 @@ async def resume_adk_pipeline(
     Bypasses the Orchestrator to avoid loops and resumes directly with ActionExecutorAgent.
     """
     yield {"type": "log", "agent": "SYSTEM", "message": f"DEBUG: Entering resume_adk_pipeline with decision: {decision}"}
-    from sentinel.agents.action_executor import action_executor_agent
+    from core.agents.action_executor import action_executor_agent
     runner = Runner(
         app_name="sentinel-soc",
         agent=action_executor_agent,
@@ -338,7 +314,7 @@ async def resume_adk_pipeline(
                         closure["close_result"] = resp
                         closure["close_notes"] = resp.get("close_notes", "")
                         try:
-                            from sentinel.tools.snow_mcp import get_incident_state
+                            from core.tools.snow_mcp import get_incident_state
                             closure["snow_state"] = get_incident_state(snow_ref)
                         except Exception: pass
                         yield {"type": "step", "step": 8}

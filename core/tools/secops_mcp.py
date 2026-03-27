@@ -10,7 +10,7 @@ import json
 import os
 from pathlib import Path
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data"
 CASES_DIR = DATA_DIR / "cases"
 SOAR_FILE = DATA_DIR / "soar_actions.json"
 

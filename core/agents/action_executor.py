@@ -10,9 +10,9 @@ from __future__ import annotations
 import os
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool
-from sentinel.tools.snow_mcp import add_worknote, close_incident
+from core.tools.snow_mcp import add_worknote, close_incident
 
-MODEL = os.getenv("SENTINEL_MODEL", "gemini-2.0-flash")
+MODEL = os.getenv("SECOPS_MODEL_FLASH", "gemini-2.5-flash")
 SECOPS_MCP_URL = os.getenv("SECOPS_MCP_URL", "")
 
 SYSTEM_PROMPT = """You are the Action Executor Agent for Agentic SecOps.
@@ -60,7 +60,7 @@ def _make_tools():
         )
         return [secops_tools] + snow_tools
     else:
-        from sentinel.tools.secops_mcp import trigger_playbook, update_case_status
+        from core.tools.secops_mcp import trigger_playbook, update_case_status
         return [
             FunctionTool(trigger_playbook),
             FunctionTool(update_case_status),

@@ -8,39 +8,6 @@ from __future__ import annotations
 
 import sys
 import os
-print("="*20)
-print("PYTHON SYS.PATH:")
-for p in sys.path:
-    print(p)
-print("="*20)
-# Attempt to find the correct site-packages directory
-try:
-    # Based on the venv structure, the executable is in venv/bin/python
-    # So site-packages should be in ../lib/pythonX.Y/site-packages
-    # We'll try to be robust to the exact python version
-    py_executable_dir = os.path.dirname(sys.executable)
-    venv_dir = os.path.dirname(py_executable_dir)
-    lib_dir = os.path.join(venv_dir, 'lib')
-    
-    # Find the pythonX.Y directory
-    python_version_dir = ""
-    for d in os.listdir(lib_dir):
-        if d.startswith('python'):
-            python_version_dir = d
-            break
-            
-    if python_version_dir:
-        site_packages_path = os.path.join(lib_dir, python_version_dir, 'site-packages')
-        print(f"LISTING {site_packages_path}:")
-        for item in os.listdir(site_packages_path):
-            print(f"  - {item}")
-    else:
-        print("Could not find pythonX.Y directory in lib.")
-
-except Exception as e:
-    print(f"Could not list site-packages: {e}")
-print("="*20)
-
 import json
 import time
 import sys
@@ -246,15 +213,18 @@ CASES = {
     },
 }
 
+MODEL_FLASH = os.getenv("SECOPS_MODEL_FLASH", "gemini-2.5-flash")
+MODEL_PRO = os.getenv("SECOPS_MODEL_PRO", "gemini-2.5-pro")
+
 PIPELINE_STEPS = [
-    "Case Ingestion [Orchestrator]",
-    "Data Enrichment [Enrichment Agent — SIEM MCP]",
-    "Playbook Selection [Enrichment Agent — RAG Method]",
-    "Threat Intel Enrichment [Enrichment Agent — GTI MCP]",
-    "Impact & Incident Synthesis [Threat Analyst Agent — Gemini 2.0 Flash]",
+    f"Case Ingestion [Orchestrator — {MODEL_PRO}]",
+    f"Data Enrichment [Enrichment Agent — {MODEL_FLASH}]",
+    f"Playbook Selection [Enrichment Agent — {MODEL_FLASH}]",
+    f"Threat Intel Enrichment [Enrichment Agent — {MODEL_FLASH}]",
+    f"Impact & Incident Synthesis [Threat Analyst Agent — {MODEL_PRO}]",
     "HITL Review [Analyst Gate]",
-    "Agentic Remediation [Action Executor Agent — SOAR MCP]",
-    "Automated Case Closure [Action Executor Agent — ServiceNow MCP]"
+    f"Agentic Remediation [Action Executor Agent — {MODEL_FLASH}]",
+    f"Automated Case Closure [Action Executor Agent — {MODEL_FLASH}]"
 ]
 
 ALL_PLAYBOOKS = [
@@ -601,7 +571,7 @@ with main_col:
     if st.session_state["pipeline_step"] >= 5 and st.session_state.get("analysis"):
         analysis = st.session_state["analysis"]
         st.markdown("---")
-        st.markdown("#### 🛡️ Step 5 — Impact & Incident Synthesis [Threat Analyst Agent — Gemini 2.0 Flash]")
+        st.markdown(f"#### 🛡️ Step 5 — Impact & Incident Synthesis [Threat Analyst Agent — {MODEL_PRO}]")
         
         conf = analysis.get("confidence_score", 0)
         st.markdown(f"""
@@ -657,8 +627,8 @@ with main_col:
             <div style="color:#64748b;font-size:11px;margin-top:4px">⏱ Est. containment: {analysis.get('estimated_containment_time_minutes',0)} min</div>
           </div>
           <div style="margin-top:12px">
-            <div class="secops-card-header" style="color:#2563eb">Required Analyst Actions</div>
-            {''.join(f'<div style="color:#334155;font-size:12px;padding:2px 0">▸ {a}</div>' for a in analysis.get('analyst_actions_required',[]))}
+            <div class="secops-card-header" style="color:#2563eb">Provide approval to perform the following actions</div>
+            {''.join(f'<div style="color:#334155;font-size:12px;padding:2px 0">▸ {a}</div>' for a in analysis.get('actions_to_approve',[]))}
           </div>
         </div>
         """, unsafe_allow_html=True)
@@ -673,7 +643,7 @@ with main_col:
             st.session_state["hitl_decision"] = "Auto-Approved"
             _log("ORCHESTRATOR", "Confidence > 90% and Severity Low/Medium. Auto-Remediation policy triggered.")
             _audit("SYSTEM", f"Policy: Auto-Remediation triggered for {analysis.get('recommended_playbook_id')}", "Auto-Approved")
-            from sentinel.tools.snow_mcp import add_worknote
+            from core.tools.snow_mcp import add_worknote
             raw = st.session_state["case_data"]["raw_case"]
             snow_ref = raw.get("snow_incident_ref", "INC0000000")
             add_worknote(snow_ref, f"HITL DECISION: Auto-approved by system policy (>90% confidence) at {datetime.now(timezone.utc).isoformat()}", author="SYSTEM")
@@ -697,7 +667,7 @@ with main_col:
                     st.session_state["hitl_decision"] = "Accepted"
                     _log("ORCHESTRATOR", f"HITL: Accepted by {st.session_state['analyst_name']}")
                     _audit(st.session_state["analyst_name"], f"HITL: Accepted {analysis.get('recommended_playbook_id')}", "Approved")
-                    from sentinel.tools.snow_mcp import add_worknote
+                    from core.tools.snow_mcp import add_worknote
                     raw = st.session_state["case_data"]["raw_case"]
                     snow_ref = raw.get("snow_incident_ref", "INC0000000")
                     add_worknote(snow_ref, f"HITL DECISION: Accepted by {st.session_state['analyst_name']} at {datetime.now(timezone.utc).isoformat()}", author=st.session_state["analyst_name"])
@@ -731,7 +701,7 @@ with main_col:
                 if st.button("✅ Confirm Override", type="primary", use_container_width=True):
                     _log("ORCHESTRATOR", f"HITL: Override — analyst selected {selected_pb}")
                     _audit(st.session_state["analyst_name"], f"HITL: Override → {selected_pb}", override_reason or "No reason given")
-                    from sentinel.tools.snow_mcp import add_worknote
+                    from core.tools.snow_mcp import add_worknote
                     raw = st.session_state["case_data"]["raw_case"]
                     snow_ref = raw.get("snow_incident_ref","INC0000000")
                     add_worknote(snow_ref, f"HITL OVERRIDE by {st.session_state['analyst_name']}: {selected_pb} selected. Reason: {override_reason or 'None given'}", author=st.session_state["analyst_name"])
@@ -761,7 +731,7 @@ with main_col:
                 if st.button("🔁 Submit Feedback & Re-analyse", type="primary", use_container_width=True, disabled=not feedback):
                     _log("ORCHESTRATOR", f"HITL: Rejected — feedback submitted by {st.session_state['analyst_name']}")
                     _audit(st.session_state["analyst_name"], "HITL: Rejected — feedback submitted", feedback)
-                    from sentinel.tools.snow_mcp import add_worknote
+                    from core.tools.snow_mcp import add_worknote
                     raw = st.session_state["case_data"]["raw_case"]
                     snow_ref = raw.get("snow_incident_ref","INC0000000")
                     add_worknote(snow_ref, f"HITL REJECT by {st.session_state['analyst_name']}: {feedback}", author=st.session_state["analyst_name"])

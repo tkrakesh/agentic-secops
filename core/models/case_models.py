@@ -45,7 +45,7 @@ class CaseAnalysis(BaseModel):
     )
     confidence_score: float = Field(ge=0.0, le=1.0, description="Confidence in the recommendation (0.0–1.0)")
     ioc_enrichments: list[IoCEnrichment]
-    analyst_actions_required: list[str] = Field(
+    actions_to_approve: list[str] = Field(
         description="Ordered list of actions the analyst must take or approve"
     )
     estimated_containment_time_minutes: int = Field(description="Estimated time to full containment in minutes")

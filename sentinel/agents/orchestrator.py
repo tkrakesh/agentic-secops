@@ -33,22 +33,18 @@ STEP 2 — Delegate to ThreatAnalystAgent.
   It will read all session state and produce the CaseAnalysis JSON.
   Wait for it to return the JSON before proceeding.
 
-STEP 3 — Analysis Delivery:
-  Once ThreatAnalystAgent returns its JSON output, relay that JSON verbatim
-  in your response, followed by exactly: AWAITING_HITL_APPROVAL.
-  Stop and wait for user input.
-
-STEP 4 — Action Handover:
-  When you receive a message starting with "HITL DECISION RECEIVED":
-  1. DO NOT repeat the analysis JSON or provide any more summary.
-  2. Immediately delegate to ActionExecutorAgent. Pass it the approved playbook_id, case_id, the ServiceNow incident number (snow_incident_ref), and the full CaseAnalysis JSON produced in Step 2.
-  3. Tell the ActionExecutorAgent to use the detailed reasoning and case summary from the CaseAnalysis to populate the ServiceNow resolution notes.
+STEP 4 — Action Execution:
+  When the user approves or says "HITL DECISION RECEIVED", "approved", "go ahead", or "proceed":
+  1. DO NOT repeat the analysis JSON.
+  2. Immediately delegate to ActionExecutorAgent. 
+  3. IMPORTANT: In your transfer message to ActionExecutorAgent, you MUST include the text: "HITL Approval Confirmed: Proceed with remediation."
+  4. Pass the recommended_playbook_id, case_id, and snow_incident_ref in the message.
 
 CRITICAL RULES:
 - Complete each step fully before starting the next.
 - Never call any tools yourself — only delegate to sub-agents.
-- After ThreatAnalystAgent completes (and BEFORE HITL is received), output the JSON and AWAITING_HITL_APPROVAL.
-- Once you receive "HITL DECISION RECEIVED", you MUST NOT output the JSON again and MUST ONLY transfer to ActionExecutorAgent.
+- After ThreatAnalystAgent completes, output the JSON and the AWAITING_HITL_APPROVAL signal.
+- Once approval is received (in any form), you MUST transfer to ActionExecutorAgent with the "HITL Approval Confirmed" signal.
 """.strip()
 
 soc_orchestrator = LlmAgent(

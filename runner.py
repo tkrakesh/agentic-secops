@@ -295,9 +295,9 @@ async def resume_adk_pipeline(
     raw_case = _load_case_data(case_id)
     snow_ref = raw_case.get("snow_incident_ref", "INC0000000")
     if decision in ("Accepted", "Auto-Approved"):
-        msg = f"HITL DECISION RECEIVED: Analyst {analyst_name} has ACCEPTED recommendation.\nApproved playbook: {analysis.get('recommended_playbook_id')}.\nServiceNow Incident: {snow_ref}.\nActionExecutorAgent: proceed with Step 8 execution now."
+        msg = f"HITL DECISION RECEIVED: Analyst {analyst_name} has ACCEPTED recommendation.\nApproved playbook: {analysis.get('recommended_playbook_id')}.\nServiceNow Incident: {snow_ref}.\n\nCASE ANALYSIS CONTEXT:\n{json.dumps(analysis, indent=2)}\n\nActionExecutorAgent: proceed with ALL 4 execution steps now (Playbook, Worknote, Closure, Status Update)."
     elif decision == "override":
-        msg = f"HITL DECISION RECEIVED: Analyst {analyst_name} has OVERRIDDEN with playbook {override_playbook}.\nServiceNow Incident: {snow_ref}.\nActionExecutorAgent: execute the override playbook now."
+        msg = f"HITL DECISION RECEIVED: Analyst {analyst_name} has OVERRIDDEN with playbook {override_playbook}.\nServiceNow Incident: {snow_ref}.\n\nCASE ANALYSIS CONTEXT:\n{json.dumps(analysis, indent=2)}\n\nActionExecutorAgent: execute the override playbook and proceed with ALL closure steps now."
     else:  # reject
         msg = f"HITL DECISION RECEIVED: Analyst {analyst_name} REJECTED recommendation.\nFeedback: {feedback}\nPlease revise the analysis and wait for approval again."
 

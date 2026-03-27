@@ -54,9 +54,9 @@ The system reduces mean-time-to-respond (MTTR) by autonomously gathering case da
 |         +-----+----------+----------+----------+------------+          |
 |               |          |          |          |                        |
 |        +------+--+  +----+----+  +--+------+  +------+-------+         |
-|        |CaseRet. |  |RAGPlay. |  |ThreatIn.|  |ActionExec.   |         |
-|        |Agent    |  |Agent    |  |Agent    |  |Agent         |         |
-|        +---------+  +---------+  +---------+  +--------------+         |
+|        |Enrichment|  |Threat   |  |ActionExec.|         |         |
+|        |Agent     |  |Analyst  |  |Agent      |         |         |
+|        +---------+  +---------+  +-----------+         |         |
 +------------|-----------------|-----------|------------|----------------+
              |                 |           |            |
 +------------|-----------------|-----------|------------|----------------+
@@ -94,18 +94,18 @@ flowchart TD
         subgraph SA["sub_agents list"]
             direction LR
 
-            EN["EnrichmentAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/enrichment.py\nStep: 2-4  Mode: READ-ONLY\noutput_key: session_state"]
+            EN["EnrichmentAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/enrichment.py\nStep: 2-4  Mode: PARALLEL READ\noutput_key: session_state"]
 
-            TA["ThreatAnalystAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/threat_analyst.py\nStep: 5-6  Mode: REASONER\noutput_key: case_analysis"]
+            TA["ThreatAnalystAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/threat_analyst.py\nStep: 5  Mode: REASONER\noutput_key: case_analysis"]
 
-            AE["ActionExecutorAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/action_executor.py\nStep: 8  Mode: WRITE\noutput_key: execution_log\nHITL-GATED"]
+            AE["ActionExecutorAgent\nClass: LlmAgent\nModel: gemini-2.0-flash\nFile: agents/action_executor.py\nStep: 7-8  Mode: WRITE\noutput_key: execution_log\nHITL-GATED"]
         end
     end
 
     ROOT -->|Step 1: delegate| EN
-    ROOT -->|Step 5-6: delegate| TA
-    ROOT -->|Step 7: HITL Gate| HITL
-    ROOT -->|Step 8: delegate after approval| AE
+    ROOT -->|Step 5: delegate| TA
+    ROOT -->|Step 6: HITL Gate| HITL
+    ROOT -->|Step 7-8: delegate after approval| AE
 
     HITL["HITL Approval Gate\nStreamlit UI\n---\nAPPROVE  proceed to execute\nOVERRIDE select different playbook\nREJECT   provide feedback"]
 
@@ -170,26 +170,15 @@ flowchart TD
 ### 4.3 Tool Map per Agent
 
 ```
-CaseRetrievalAgent
-  +-- FunctionTool: get_case(case_id)            -> SecOps MCP  [READ]
-  +-- FunctionTool: list_alerts(case_id)         -> SecOps MCP  [READ]
-  +-- FunctionTool: get_raw_logs(case_id)        -> SecOps MCP  [READ]
-  +-- FunctionTool: get_affected_assets(case_id) -> SecOps MCP  [READ]
-
-RAGPlaybookAgent
-  +-- FunctionTool: query_playbook_corpus(query_text, top_k=3)  -> RAG Tool
-
-ThreatIntelAgent
-  +-- FunctionTool: enrich_ip(ip_address)        -> GTI MCP     [READ]
-  +-- FunctionTool: enrich_hash(file_hash)       -> GTI/VT MCP  [READ]
-  +-- FunctionTool: enrich_domain(domain)        -> GTI MCP     [READ]
+CaseRetrieval: Handled by EnrichmentAgent
+Playbook RAG:  Handled by EnrichmentAgent
+Threat Intel:  Handled by EnrichmentAgent
 
 ActionExecutorAgent
-  +-- FunctionTool: trigger_playbook(playbook_id, case_id)    -> SecOps MCP  [WRITE]
-  +-- FunctionTool: update_case_status(case_id, status, notes)-> SecOps MCP  [WRITE]
-  +-- FunctionTool: add_worknote(inc_number, note, author)    -> SNOW MCP    [WRITE]
-  +-- FunctionTool: close_incident(inc_number, close_notes)   -> SNOW MCP    [WRITE]
-  +-- FunctionTool: get_incident_state(inc_number)            -> SNOW MCP    [READ]
+  +-- Tool: trigger_playbook(playbook_id, case_id)    -> SecOps [WRITE]
+  +-- Tool: add_worknote(inc_number, note, author)    -> SNOW   [WRITE]
+  +-- Tool: close_incident(inc_number, close_notes)   -> SNOW   [WRITE]
+  +-- Tool: update_case_status(case_id, status, notes)-> SecOps [WRITE]
 ```
 
 ### 4.4 ADK Entry Points
@@ -201,50 +190,32 @@ ActionExecutorAgent
 
 ---
 
-## 5. The 9-Step Pipeline
+## 5. The 8-Step Agentic Pipeline
 
 ```
 Step 1:  CASE INGESTION
          SOC Analyst selects a Case ID in the Streamlit UI
-         Input:  case_id  (e.g. CASE-001)
 
-Step 2:  DATA RETRIEVAL  [CaseRetrievalAgent]
-         Tools:  get_case -> list_alerts -> get_raw_logs -> get_affected_assets
-         Output: case_context (CASE OVERVIEW + ALERTS + ASSETS + IOCs + LOG EXCERPT)
+Step 2:  DATA RETRIEVAL [EnrichmentAgent]
+         Parallel: Logs, User Data, Affected Assets via SecOps MCP
 
-Step 3:  PLAYBOOK IDENTIFICATION  [RAGPlaybookAgent]
-         Tool:   query_playbook_corpus(threat_context, top_k=3)
-         Method: TF-IDF keyword overlap + domain threat-term boosting
-         Output: playbook_match (Top 3 playbooks with relevance scores and excerpts)
-         HITL:   Analyst may OVERRIDE the top recommendation
+Step 3:  PLAYBOOK RAG [EnrichmentAgent]
+         Semantic search for matched Playbooks in library
 
-Step 4:  THREAT INTEL ENRICHMENT  [EnrichmentAgent]
-         Tools:  enrich_ip / enrich_hash / enrich_domain for each IoC
-         Sources: Google Threat Intelligence + VirusTotal Enterprise
-         Output: ioc_enrichments (per-IoC reputation, malware family, MITRE techniques)
+Step 4:  THREAT INTEL ENRICHMENT [EnrichmentAgent]
+         IoC reputation via Google Threat Intelligence (GTI)
 
-Steps 5-6: LLM REASONING + STRUCTURED OUTPUT  [ThreatAnalystAgent]
-         Process: ADK AutoFlow routes collected tool data automatically
-         Model:  gemini-2.0-flash via ADK LlmAgent
-         Output: CaseAnalysis (Pydantic schema defined natively in ADK)
+Step 5:  IMPACT & SYNTHESIS [ThreatAnalystAgent]
+         Gemini reasons across tool data to produce CaseAnalysis JSON
 
-Step 7:  HITL APPROVAL GATE
-         Orchestrator emits: "AWAITING_HITL_APPROVAL"
-         UI presents full CaseAnalysis to the analyst:
-           APPROVE  -> proceed to action execution
-           OVERRIDE -> select a different playbook -> loop to Step 5
-           REJECT   -> provide feedback -> loop to Step 5
-         Constraint: ActionExecutorAgent is BLOCKED without approval token
+Step 6:  HITL APPROVAL GATE
+         Orchestrator pauses for manual review or Auto-Remediation
 
-Step 8:  ACTION EXECUTION  [ActionExecutorAgent]  <-- WRITE operations begin
-         1. trigger_playbook(playbook_id, case_id)
-         2. add_worknote(inc_number, audit_note, author)
-         Output: execution_log (execution_id + action steps with status/duration)
+Step 7:  AGENTIC REMEDIATION [ActionExecutorAgent]
+         SOAR playbook execution + ServiceNow audit logging
 
-Step 9:  CASE CLOSURE + AUDIT TRAIL  [ActionExecutorAgent / runner.py]
-         3. close_incident(inc_number, close_notes)
-         4. update_case_status(case_id, "RESOLVED", notes)
-         Output: Full case resolution report
+Step 8:  CASE CLOSURE & AUDIT [ActionExecutorAgent]
+         Final ServiceNow resolution + SecOps Case status update
 ```
 
 ---
@@ -463,7 +434,7 @@ The following sequence demonstrates a complete, automated lifecycle for a **Crit
 9. **Case Closure**: 
    - `ActionExecutorAgent` resolves the ServiceNow incident.
    - Case status in Google SecOps SIEM is updated to **RESOLVED**.
-   - **Final Result**: Incident contained in **45 minutes** (estimated) vs. days in manual SOCs.
+   - **Final Result**: Incident contained in **1–5 minutes** (estimated) vs. hours in manual SOCs.
 
 ---
 
@@ -477,11 +448,10 @@ AVG. CONTAINMENT     ACTIVE CRITICALS     AUTO-REMEDIATION
 
 **Pipeline Progress:**
 - [x] 1. Case Ingestion
-- [x] 2. Data Retrieval
-- [x] 3. Playbook RAG
-- [x] 4. Threat Intel
-- [x] 5. Gemini Analysis
-- [x] 6. Recommendation
-- [x] 7. HITL Approval
-- [x] 8. Action Execution
-- [x] 9. Case Closure
+- [x] 2. Data Retrieval [Enrichment]
+- [x] 3. Playbook RAG [Enrichment]
+- [x] 4. Threat Intel [Enrichment]
+- [x] 5. Threat Synthesis [Gemini]
+- [x] 6. HITL Approval Gate
+- [x] 7. Agentic Remediation
+- [x] 8. Case Closure

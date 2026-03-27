@@ -1,6 +1,6 @@
 # 🛡️ Agentic SecOps: AI-Driven SOC
 
-Agentic SecOps is a next-generation SOC (Security Operations Centre) AIOps platform built with **Google ADK** and **Gemini 2.5 Flash**. It orchestrates a multi-agent team to analyze, triage, and remediate security incidents end-to-end.
+Agentic SecOps is a next-generation SOC (Security Operations Centre) AIOps platform built with **Google ADK** and **Gemini 2.0 Flash**. It orchestrates a multi-agent team to analyze, triage, and remediate security incidents end-to-end.
 
 ## 🚀 Features
 - **ADK Multi-Agent Orchestration**: Coordinating specialized agents for Case Retrieval, RAG Playbooks, and Threat Intel.
@@ -41,7 +41,7 @@ GOOGLE_CLOUD_LOCATION=us-central1
 GOOGLE_API_KEY=xxx-optional-gemini-key-xxx
 
 # Agentic SecOps Config
-SENTINEL_MODEL=gemini-2.5-flash
+SENTINEL_MODEL=gemini-2.0-flash
 ```
 
 ### 4. Run the Application

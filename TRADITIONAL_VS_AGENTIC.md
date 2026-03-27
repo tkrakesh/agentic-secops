@@ -27,9 +27,9 @@ With Agentic SecOps, exactly the same scenario is compressed into **under 5 minu
 | Step | Activity | Est. Time | The "Agentic Edge" |
 | :--- | :--- | :--- | :--- |
 | **1-4** | **Parallel Enrichment** | **< 60 sec** | **EnrichmentAgent** fetches data, RAG playbooks, and Intel in ONE turn. |
-| **5-6** | **AI Threat Synthesis** | **< 30 sec** | **ThreatAnalystAgent** identifies the human risk instantly with high confidence. |
-| **7** | **Unified HITL** | **< 60 sec** | Analyst approves in **one single UI** with full context provided. |
-| **8-9** | **Automated Execution** | **< 30 sec** | **ActionExecutorAgent** isolates hosts and updates ServiceNow instantly. |
+| **5** | **AI Threat Synthesis** | **< 30 sec** | **ThreatAnalystAgent** identifies risk instantly with high confidence. |
+| **6** | **Unified HITL Gate** | **< 60 sec** | Analyst approves in **one single UI** with full context provided. |
+| **7-8** | **Remediation & Closure**| **< 30 sec** | **ActionExecutorAgent** isolates hosts and updates ServiceNow instantly. |
 
 **Total MTTR: < 5 Minutes**
 

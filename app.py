@@ -423,31 +423,7 @@ st.markdown(f'<p style="color:#64748b;margin-top:-14px">Agentic AIOps · Securit
 
 # Check line 355 for the start of the progress area
 
-# Metrics Ribbon
-active_criticals = sum(1 for c in CASES.values() if c["severity"] == "CRITICAL")
-avg_containment = "2m 14s"
-auto_remed_pct = 92 if st.session_state["pipeline_step"] >= 9 else 84
-
-st.markdown(f"""
-<div class="metrics-container">
-  <div class="metric-card">
-    <div class="metric-label">Avg. Containment</div>
-    <div class="metric-value">{avg_containment}</div>
-    <div class="metric-delta">↑ 12% vs last week</div>
-  </div>
-  <div class="metric-card">
-    <div class="metric-label">Active Criticals</div>
-    <div class="metric-value">{active_criticals:02d}</div>
-    <div class="metric-delta" style="color:#ef4444">High Alert</div>
-  </div>
-  <div class="metric-card">
-    <div class="metric-label">Auto-Remediation</div>
-    <div class="metric-value">{auto_remed_pct}%</div>
-    <div class="metric-delta">Target: 90%</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
+# Progress Ribbon
 step = st.session_state.get("pipeline_step", 0)
 
 cols = st.columns(9)

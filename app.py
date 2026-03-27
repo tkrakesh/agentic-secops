@@ -445,7 +445,7 @@ with main_col:
             st.session_state["adk_session_id"] = session_id
 
             async def run_pipeline_to_hitl():
-                with st.status(f"🛠️ Orchestrator: Starting Pipeline for {case_id}...", expanded=True) as status:
+                with st.status("🚀 SOCOrchestrator: Investigating Case...", expanded=True) as status:
                     _audit("SecOps Orchestrator (AI)", f"Pipeline started for {case_id}", "Initiated")
                     async for event in run_adk_pipeline(case_id, session_id, st.session_state["analyst_name"], st.session_state["session_service"]):
                         if event["type"] == "step":
@@ -472,9 +472,6 @@ with main_col:
                             if event["state"] == "awaiting":
                                 st.session_state["pipeline_step"] = 6
                                 _audit("SecOps Orchestrator (AI)", "Pipeline paused for HITL approval", "AWAITING_ANALYST")
-                            else:
-                                # For auto_approved, pipeline_step will be set to 7 in the hitl panel handler
-                                pass 
                             break
 
             asyncio.run(run_pipeline_to_hitl())
@@ -491,263 +488,73 @@ with main_col:
     # ── Display error if any ───────────────────────────────────────────────────
     if st.session_state.get("error"):
         st.error(f"⚠️ Pipeline Error: {st.session_state['error']}")
-        st.markdown("**Check your `.env` file has `GOOGLE_API_KEY`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` set.**")
 
-    # ── Step 2: Show case data ─────────────────────────────────────────────────
-    if st.session_state["pipeline_step"] >= 2 and st.session_state.get("case_data"):
-        cd = st.session_state["case_data"]
-        raw = cd["raw_case"]
-
-        with st.expander("📂 Step 2 — Data Enrichment [Enrichment Agent — SIEM MCP]", expanded=False):
-            c1, c2 = st.columns(2)
-            with c1:
-                st.markdown("**Correlated Alerts**")
-                for a in cd["alerts"]:
-                    sev_color = "🔴" if a["severity"] == "CRITICAL" else "🟠"
-                    st.markdown(f"{sev_color} `{a['alert_id']}` **{a['rule_name']}**  \n`{a['timestamp'][:16]}` · src: `{a['source_ip']}`")
-            with c2:
-                st.markdown("**Affected Assets**")
-                for asset in cd["assets"]:
-                    st.markdown(f"💻 **{asset['hostname']}** (`{asset['ip']}`)  \n{asset['os']} · `{asset['user']}`")
-
-            st.markdown("**Raw CEF Log Sample**")
-            log_lines = cd["logs"].strip().split("\n")[:6]
-            st.code("\n".join(log_lines), language="text")
-
-    # ── Step 3: RAG results ────────────────────────────────────────────────────
-    if st.session_state["pipeline_step"] >= 3 and st.session_state.get("rag_results"):
-        rags = st.session_state["rag_results"]
-        with st.expander("📚 Step 3 — Playbook Selection [Enrichment Agent — RAG Method]", expanded=False):
-            for i, r in enumerate(rags):
-                score_pct = int(r.get("relevance_score", 0) * 100)
-                prefix = "🥇" if i == 0 else ("🥈" if i == 1 else "🥉")
-                st.markdown(f"""
-                <div class="secops-card">
-                  <div style="display:flex;justify-content:space-between;align-items:center">
-                    <span style="font-weight:700;color:#e2e8f0">{prefix} {r['playbook_id']} — {r['playbook_name']}</span>
-                    <span style="font-size:20px;font-weight:800;color:{'#22c55e' if score_pct>=80 else '#f59e0b'}">{score_pct}%</span>
-                  </div>
-                  <div style="color:#94a3b8;font-size:12px;margin-top:8px;font-style:italic">"{r.get('excerpt','')}"</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-    # ── Step 4: IoC enrichments ────────────────────────────────────────────────
-    if st.session_state["pipeline_step"] >= 4 and st.session_state.get("ioc_data"):
-        ioc_data = st.session_state["ioc_data"]
-        with st.expander("🔬 Step 4 — Threat Intel Enrichment [Enrichment Agent — GTI MCP]", expanded=False):
-            all_iocs = (
-                [(d, "ip") for d in ioc_data.get("ips", [])] +
-                [(d, "hash") for d in ioc_data.get("hashes", [])] +
-                [(d, "domain") for d in ioc_data.get("domains", [])]
-            )
-            for ioc, itype in all_iocs:
-                indicator = ioc.get("ip") or ioc.get("hash") or ioc.get("domain") or "?"
-                score = ioc.get("reputation_score", 0)
-                verdict = ioc.get("verdict", "Unknown")
-                mitre = ioc.get("mitre_techniques", [])
-                rep_cls = _rep_color(score)
-                mitre_html = " ".join(f'<span class="mitre-badge">{t}</span>' for t in mitre)
-                st.markdown(f"""
-                <div class="secops-card">
-                  <div style="display:flex;justify-content:space-between;align-items:flex-start">
-                    <div>
-                      <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#60a5fa">{itype.upper()}</span>
-                      <span style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px;color:#e2e8f0;margin-left:8px">{indicator[:60]}</span><br>
-                      <span style="color:#94a3b8;font-size:12px">{ioc.get('classification','Unknown')}</span>
-                    </div>
-                    <div style="text-align:right">
-                      <span class="{rep_cls}" style="font-size:22px">{score}</span>
-                      <div style="font-size:10px;color:#64748b">rep. score</div>
-                    </div>
-                  </div>
-                  <div style="margin-top:6px">
-                    <span style="font-size:11px;color:#94a3b8">Family: {ioc.get('malware_family') or 'Unknown'} · Campaign: {ioc.get('campaign') or 'Unknown'} · Verdict: <strong style="color:{'#ef4444' if 'Malicious' in verdict else '#f59e0b' if 'Suspicious' in verdict else '#22c55e'}">{verdict}</strong></span>
-                  </div>
-                  <div style="margin-top:6px">{mitre_html}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-    # ── Step 5: Impact & Incident Synthesis [Threat Analyst Agent] ──────────────
-    if st.session_state["pipeline_step"] >= 5 and st.session_state.get("analysis"):
-        analysis = st.session_state["analysis"]
-        st.markdown("---")
-        st.markdown(f"#### 🛡️ Step 5 — Impact & Incident Synthesis [Threat Analyst Agent — {MODEL_PRO}]")
-        
-        conf = analysis.get("confidence_score", 0)
-        st.markdown(f"""
-        <div class="secops-card">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div style="flex:1">
-              {_conf_bar(conf)}
-            </div>
-            <div style="flex:1;display:flex;justify-content:space-around;margin-left:20px;background:#0f172a;padding:12px;border-radius:8px;border:1px solid #1e293b">
-                <div style="text-align:center">
-                  <div class="secops-card-header" style="margin-bottom:2px">Blast Radius: Endpoints</div>
-                  <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_endpoints',0)}</div>
-                </div>
-                <div style="text-align:center">
-                  <div class="secops-card-header" style="margin-bottom:2px">Blast Radius: Users</div>
-                  <div style="font-size:24px;font-weight:800;color:#f97316">{analysis.get('blast_radius_users',0)}</div>
-                </div>
-            </div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    if st.session_state["pipeline_step"] >= 5 and st.session_state.get("analysis"): # Keep showing Synthesis as part of Step 5
-        analysis = st.session_state["analysis"]
-        sev = analysis.get("severity", "HIGH")
-        mitre = analysis.get("mitre_techniques", [])
-
-        # (Remove the redundant Step 6 header)
-
-        # Main analysis card
-        mitre_html = " ".join(
-            f'<span class="mitre-badge" title="{t.get("technique_name","")} · {t.get("tactic","")}">{t.get("technique_id","")}</span>'
-            for t in mitre
-        )
-        st.markdown(f"""
-        <div class="secops-card">
-          <div style="flex:2;min-width:200px">
-            <div class="secops-card-header">Threat Classification</div>
-            <div style="font-size:18px;font-weight:700;color:#f1f5f9;margin-bottom:8px">{analysis.get('threat_classification','')}</div>
-            <div style="margin-bottom:8px">{_severity_badge(sev)}</div>
-            <p style="color:#94a3b8;font-size:13px;line-height:1.6">{analysis.get('case_summary','')}</p>
-          </div>
-          <div style="margin-top:20px">
-            <div class="secops-card-header">MITRE ATT&CK Techniques</div>
-            {mitre_html if mitre_html else '<span style="color:#64748b;font-size:12px">None identified</span>'}
-          </div>
-          <div style="margin-top:16px;padding:12px;background:#f8fafc;border-radius:8px;border-left:3px solid #2563eb;border:1px solid #e2e8f0">
-            <div class="secops-card-header" style="color:#2563eb">Recommended Playbook</div>
-            <div style="font-weight:700;color:#1e293b;font-size:14px">
-              {analysis.get('recommended_playbook_id','')} — {analysis.get('recommended_playbook_name','')}
-            </div>
-            <div style="color:#475569;font-size:12px;margin-top:4px">{analysis.get('playbook_rationale','')}</div>
-            <div style="color:#64748b;font-size:11px;margin-top:4px">⏱ Est. containment: {analysis.get('estimated_containment_time_minutes',0)} min</div>
-          </div>
-          <div style="margin-top:12px">
-            <div class="secops-card-header" style="color:#2563eb">Provide approval to perform the following actions</div>
-            {''.join(f'<div style="color:#334155;font-size:12px;padding:2px 0">▸ {a}</div>' for a in analysis.get('actions_to_approve',[]))}
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # ── Step 6: HITL Panel ─────────────────────────────────────────────────────
-    if st.session_state["pipeline_step"] >= 6 and st.session_state["hitl_state"] != "none":
-        hitl = st.session_state["hitl_state"]
+    # ── Step 8: SNOW ticket card + audit trail ─────────────────────────────────
+    if st.session_state["pipeline_step"] >= 8 and st.session_state.get("closure"):
+        closure = st.session_state["closure"]
+        snow_state = closure.get("snow_state", {})
         analysis = st.session_state.get("analysis", {})
 
-        if hitl == "auto_approved":
-            st.session_state["hitl_state"] = "approved"
-            st.session_state["hitl_decision"] = "Auto-Approved"
-            _log("ORCHESTRATOR", "Confidence > 90% and Severity Low/Medium. Auto-Remediation policy triggered.")
-            _audit("SYSTEM", f"Policy: Auto-Remediation triggered for {analysis.get('recommended_playbook_id')}", "Auto-Approved")
-            from core.tools.snow_mcp import add_worknote
-            raw = st.session_state["case_data"]["raw_case"]
-            snow_ref = raw.get("snow_incident_ref", "INC0000000")
-            add_worknote(snow_ref, f"HITL DECISION: Auto-approved by system policy (>90% confidence) at {datetime.now(timezone.utc).isoformat()}", author="SYSTEM")
-            st.session_state["pipeline_step"] = 7
-            st.session_state["running"] = True
-            st.rerun()
+        with st.expander("📋 Step 8 — Case Closure & Audit Details [Action Executor Agent — ServiceNow MCP]", expanded=True):
+            # SNOW ticket card
+            opened_at = snow_state.get("opened_at","—")[:16].replace("T"," ") if snow_state.get("opened_at") else "—"
+            resolved_at = snow_state.get("resolved_at","—")
+            sla_str = "✅ Resolved within SLA"
 
-        if hitl == "awaiting":
-            st.markdown("---")
             st.markdown(f"""
-            <div class="hitl-panel">
-              <div class="hitl-title">⏸ Step 6 — HITL Approval Required [Analyst Gate]</div>
-              <div class="hitl-subtitle">Review the Gemini analysis above, then choose an action to proceed.</div>
+            <div class="snow-card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+                <div>
+                  <div class="secops-card-header">ServiceNow Incident</div>
+                  <div class="snow-resolved">🟢 {closure['snow_ref']}</div>
+                  <div style="font-size:12px;color:#22c55e;margin-top:2px">{sla_str}</div>
+                </div>
+                <div style="text-align:right">
+                  <span style="background:{'#1e3a8a' if analysis.get('is_false_positive') else '#14532d'};color:{'#93c5fd' if analysis.get('is_false_positive') else '#86efac'};padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700">{'RESOLVED (FALSE POSITIVE)' if analysis.get('is_false_positive') else 'RESOLVED'}</span>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px;flex-wrap:wrap">
+                <div><div class="snow-field">Priority</div><div class="snow-value">{snow_state.get('priority','—')}</div></div>
+                <div><div class="snow-field">Opened</div><div class="snow-value">{opened_at} UTC</div></div>
+                <div><div class="snow-field">Category</div><div class="snow-value">Security — {snow_state.get('subcategory','Cyber Incident')}</div></div>
+                <div><div class="snow-field">Threat Class</div><div class="snow-value">{analysis.get('threat_classification','—')}</div></div>
+                <div><div class="snow-field">HITL Decision</div><div class="snow-value">{st.session_state.get('hitl_decision','Accepted')}</div></div>
+                <div><div class="snow-field">Assigned</div><div class="snow-value" style="font-size:11px">SecOps AI + {st.session_state.get('analyst_name','')}</div></div>
+              </div>
+              <div style="margin-top:12px">
+                <div class="snow-field">Resolution Notes Preview</div>
+                <div style="background:#0a1a0a;border-radius:6px;padding:10px;margin-top:4px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#cbd5e1;white-space:pre-wrap">{(closure.get('close_notes') or analysis.get('playbook_rationale', '...'))[:800]}</div>
+              </div>
             </div>
             """, unsafe_allow_html=True)
 
-            col_a, col_o, col_r = st.columns(3)
-            with col_a:
-                if st.button("✅ Accept Recommendation", type="primary", use_container_width=True):
-                    st.session_state["hitl_state"] = "approved"
-                    st.session_state["hitl_decision"] = "Accepted"
-                    _log("ORCHESTRATOR", f"HITL: Accepted by {st.session_state['analyst_name']}")
-                    _audit(st.session_state["analyst_name"], f"HITL: Accepted {analysis.get('recommended_playbook_id')}", "Approved")
-                    from core.tools.snow_mcp import add_worknote
-                    raw = st.session_state["case_data"]["raw_case"]
-                    snow_ref = raw.get("snow_incident_ref", "INC0000000")
-                    add_worknote(snow_ref, f"HITL DECISION: Accepted by {st.session_state['analyst_name']} at {datetime.now(timezone.utc).isoformat()}", author=st.session_state["analyst_name"])
-                    st.session_state["pipeline_step"] = 7
-                    st.session_state["running"] = True
-                    st.rerun()
-            with col_o:
-                if st.button("🔄 Override Playbook", use_container_width=True):
-                    st.session_state["hitl_state"] = "override"
-                    st.rerun()
-            with col_r:
-                if st.button("❌ Reject & Revise", use_container_width=True):
-                    st.session_state["hitl_state"] = "reject"
-                    st.rerun()
+            # Audit trail table
+            st.markdown("### 📊 Full Audit Trail")
+            audit = st.session_state.get("audit_trail", [])
+            if audit:
+                st.markdown("""
+                <style>
+                .audit-table { width:100%; border-collapse:collapse; font-size:12px; }
+                .audit-table th { background:#0f172a; color:#4a9eff; padding:8px; text-align:left; border-bottom:1px solid #1e3a5f; }
+                .audit-table td { padding:8px; border-bottom:1px solid #1e2a3a; color:#94a3b8; }
+                .audit-table tr:hover td { background:#0a1628; }
+                </style>
+                """, unsafe_allow_html=True)
+                rows = "".join(
+                    f"<tr><td style='font-family:monospace;color:#60a5fa'>{e['timestamp']}</td><td style='color:#e2e8f0'>{e['actor']}</td><td>{e['action']}</td><td style='color:#22c55e'>{e['outcome']}</td></tr>"
+                    for e in audit
+                )
+                st.markdown(f'<table class="audit-table"><thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Outcome</th></tr></thead><tbody>{rows}</tbody></table>', unsafe_allow_html=True)
 
-        elif hitl == "override":
-            st.markdown("---")
-            st.markdown('<div class="secops-card"><div class="hitl-title" style="text-align:left">🔄 Override — Select Alternative Playbook</div>', unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="text-align:center;margin-top:24px;padding:16px;background:linear-gradient(135deg,#0a1f0a,#051505);border-radius:12px;border:1px solid #16a34a">
+              <div style="font-size:28px">🛡️ ✅</div>
+              <div style="font-size:16px;font-weight:700;color:#22c55e;margin:4px 0">Case Resolved — Agentic SecOps</div>
+              <div style="font-size:12px;color:#64748b">Full audit trail written to ServiceNow · {analysis.get('estimated_containment_time_minutes',0)} min containment</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-            pb_options = {pid: f"{pid} — {pname}" for pid, pname in ALL_PLAYBOOKS}
-            selected_pb = st.selectbox(
-                "Select alternative playbook",
-                list(pb_options.keys()),
-                format_func=lambda x: pb_options[x],
-                index=0,
-            )
-            override_reason = st.text_area("Reason for override (optional)", placeholder="e.g. C2 containment is higher priority than credential reset given active exfil...", height=80)
-
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("✅ Confirm Override", type="primary", use_container_width=True):
-                    _log("ORCHESTRATOR", f"HITL: Override — analyst selected {selected_pb}")
-                    _audit(st.session_state["analyst_name"], f"HITL: Override → {selected_pb}", override_reason or "No reason given")
-                    from core.tools.snow_mcp import add_worknote
-                    raw = st.session_state["case_data"]["raw_case"]
-                    snow_ref = raw.get("snow_incident_ref","INC0000000")
-                    add_worknote(snow_ref, f"HITL OVERRIDE by {st.session_state['analyst_name']}: {selected_pb} selected. Reason: {override_reason or 'None given'}", author=st.session_state["analyst_name"])
-                    
-                    st.session_state["override_playbook"] = selected_pb
-                    st.session_state["hitl_decision"] = "override"
-                    st.session_state["pipeline_step"] = 8
-                    st.session_state["running"] = True
-                    st.rerun()
-            with col2:
-                if st.button("← Back", use_container_width=True):
-                    st.session_state["hitl_state"] = "awaiting"
-                    st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        elif hitl == "reject":
-            st.markdown("---")
-            st.markdown('<div class="secops-card"><div class="hitl-title" style="text-align:left">❌ Reject & Revise — Provide Analyst Feedback</div>', unsafe_allow_html=True)
-
-            feedback = st.text_area(
-                "Describe what the AI missed or should reconsider:",
-                placeholder="e.g. The ransomware isolation protocol should take priority. The blast radius likely extends beyond dev workstations — check for shared file server access...",
-                height=120,
-            )
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🔁 Submit Feedback & Re-analyse", type="primary", use_container_width=True, disabled=not feedback):
-                    _log("ORCHESTRATOR", f"HITL: Rejected — feedback submitted by {st.session_state['analyst_name']}")
-                    _audit(st.session_state["analyst_name"], "HITL: Rejected — feedback submitted", feedback)
-                    from core.tools.snow_mcp import add_worknote
-                    raw = st.session_state["case_data"]["raw_case"]
-                    snow_ref = raw.get("snow_incident_ref","INC0000000")
-                    add_worknote(snow_ref, f"HITL REJECT by {st.session_state['analyst_name']}: {feedback}", author=st.session_state["analyst_name"])
-                    
-                    st.session_state["analyst_feedback"] = feedback
-                    st.session_state["hitl_decision"] = "reject"
-                    st.session_state["pipeline_step"] = 7
-                    st.session_state["running"] = True
-                    st.rerun()
-            with col2:
-                if st.button("← Back", use_container_width=True):
-                    st.session_state["hitl_state"] = "awaiting"
-                    st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    # ── Step 7: Action Execution ───────────────────────────────────────────────
+    # ── Step 7: Action Execution Logic ───────────────────────────────────────────────
     if st.session_state.get("running") and st.session_state["pipeline_step"] == 7:
         try:
             import asyncio
@@ -781,8 +588,6 @@ with main_col:
 
         except Exception as e:
             st.session_state["error"] = str(e)
-            import traceback
-            traceback.print_exc()
             st.session_state["running"] = False
             _log("ORCHESTRATOR", f"❌ ERROR in action execution: {e}")
 
@@ -793,7 +598,7 @@ with main_col:
         playbook_id = st.session_state["analysis"].get("recommended_playbook_id","")
         playbook_name = st.session_state["analysis"].get("recommended_playbook_name","")
 
-        with st.expander(f"⚙️ Step 7 — Agentic Remediation [Action Executor Agent — SOAR MCP]", expanded=False):
+        with st.expander(f"⚙️ Step 7 — Agentic Remediation [Action Executor Agent — SOAR MCP]", expanded=True):
             st.markdown(f'<div style="color:#60a5fa;font-size:13px;font-weight:600">{playbook_id} — {playbook_name}</div>', unsafe_allow_html=True)
             action_container = st.container()
             with action_container:
@@ -807,71 +612,224 @@ with main_col:
                         unsafe_allow_html=True
                     )
 
-    # ── Step 8: SNOW ticket card + audit trail ─────────────────────────────────
-    if st.session_state["pipeline_step"] >= 8 and st.session_state.get("closure"):
-        closure = st.session_state["closure"]
-        snow_state = closure.get("snow_state", {})
+    # ── Step 6: HITL Panel ─────────────────────────────────────────────────────
+    if st.session_state["pipeline_step"] >= 6 and st.session_state["hitl_state"] != "none":
+        hitl = st.session_state["hitl_state"]
         analysis = st.session_state.get("analysis", {})
 
-        with st.expander("📋 Step 8 — Case Closure & Audit Details [Action Executor Agent — ServiceNow MCP]", expanded=False):
-            # SNOW ticket card
-            opened_at = snow_state.get("opened_at","—")[:16].replace("T"," ") if snow_state.get("opened_at") else "—"
-            resolved_at = snow_state.get("resolved_at","—")
-            sla_str = "✅ Resolved within SLA"
+        if hitl == "auto_approved":
+            st.session_state["hitl_state"] = "approved"
+            st.session_state["hitl_decision"] = "Auto-Approved"
+            _log("ORCHESTRATOR", "Confidence > 90% and Severity Low/Medium. Auto-Remediation policy triggered.")
+            _audit("SYSTEM", f"Policy: Auto-Remediation triggered for {analysis.get('recommended_playbook_id')}", "Auto-Approved")
+            from core.tools.snow_mcp import add_worknote
+            raw = st.session_state["case_data"]["raw_case"]
+            snow_ref = raw.get("snow_incident_ref", "INC0000000")
+            add_worknote(snow_ref, f"HITL DECISION: Auto-approved by system policy (>90% confidence) at {datetime.now(timezone.utc).isoformat()}", author="SYSTEM")
+            st.session_state["pipeline_step"] = 7
+            st.session_state["running"] = True
+            st.rerun()
 
-        st.markdown(f"""
-        <div class="snow-card">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
-            <div>
-              <div class="secops-card-header">ServiceNow Incident</div>
-              <div class="snow-resolved">🟢 {closure['snow_ref']}</div>
-              <div style="font-size:12px;color:#22c55e;margin-top:2px">{sla_str}</div>
-            </div>
-            <div style="text-align:right">
-              <span style="background:{'#1e3a8a' if analysis.get('is_false_positive') else '#14532d'};color:{'#93c5fd' if analysis.get('is_false_positive') else '#86efac'};padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700">{'RESOLVED (FALSE POSITIVE)' if analysis.get('is_false_positive') else 'RESOLVED'}</span>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px;flex-wrap:wrap">
-            <div><div class="snow-field">Priority</div><div class="snow-value">{snow_state.get('priority','—')}</div></div>
-            <div><div class="snow-field">Opened</div><div class="snow-value">{opened_at} UTC</div></div>
-            <div><div class="snow-field">Category</div><div class="snow-value">Security — {snow_state.get('subcategory','Cyber Incident')}</div></div>
-            <div><div class="snow-field">Threat Class</div><div class="snow-value">{analysis.get('threat_classification','—')}</div></div>
-            <div><div class="snow-field">HITL Decision</div><div class="snow-value">{st.session_state.get('hitl_decision','Accepted')}</div></div>
-            <div><div class="snow-field">Assigned</div><div class="snow-value" style="font-size:11px">SecOps AI + {st.session_state.get('analyst_name','')}</div></div>
-          </div>
-          <div style="margin-top:12px">
-            <div class="snow-field">Resolution Notes Preview</div>
-            <div style="background:#0a1a0a;border-radius:6px;padding:10px;margin-top:4px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#cbd5e1;white-space:pre-wrap">{(closure.get('close_notes') or analysis.get('reasoning_for_recommendation', '...'))[:800]}</div>
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Audit trail table
-        st.markdown("### 📊 Full Audit Trail")
-        audit = st.session_state.get("audit_trail", [])
-        if audit:
+        if hitl == "awaiting":
             st.markdown("""
-            <style>
-            .audit-table { width:100%; border-collapse:collapse; font-size:12px; }
-            .audit-table th { background:#0f172a; color:#4a9eff; padding:8px; text-align:left; border-bottom:1px solid #1e3a5f; }
-            .audit-table td { padding:8px; border-bottom:1px solid #1e2a3a; color:#94a3b8; }
-            .audit-table tr:hover td { background:#0a1628; }
-            </style>
+            <div class="hitl-panel">
+              <div class="hitl-title">⏸ Step 6 — HITL Approval Required [Analyst Gate]</div>
+              <div class="hitl-subtitle">Review the Gemini analysis below, then choose an action to proceed.</div>
+            </div>
             """, unsafe_allow_html=True)
-            rows = "".join(
-                f"<tr><td style='font-family:monospace;color:#60a5fa'>{e['timestamp']}</td><td style='color:#e2e8f0'>{e['actor']}</td><td>{e['action']}</td><td style='color:#22c55e'>{e['outcome']}</td></tr>"
-                for e in audit
+
+            col_a, col_o, col_r = st.columns(3)
+            with col_a:
+                if st.button("✅ Accept Recommendation", type="primary", key="hitl_accept", use_container_width=True):
+                    st.session_state["hitl_state"] = "approved"
+                    st.session_state["hitl_decision"] = "Accepted"
+                    _log("ORCHESTRATOR", f"HITL: Accepted by {st.session_state['analyst_name']}")
+                    _audit(st.session_state["analyst_name"], f"HITL: Accepted {analysis.get('recommended_playbook_id')}", "Approved")
+                    from core.tools.snow_mcp import add_worknote
+                    raw = st.session_state["case_data"]["raw_case"]
+                    snow_ref = raw.get("snow_incident_ref", "INC0000000")
+                    add_worknote(snow_ref, f"HITL DECISION: Accepted by {st.session_state['analyst_name']} at {datetime.now(timezone.utc).isoformat()}", author=st.session_state["analyst_name"])
+                    st.session_state["pipeline_step"] = 7
+                    st.session_state["running"] = True
+                    st.rerun()
+            with col_o:
+                if st.button("🔄 Override Playbook", key="hitl_override", use_container_width=True):
+                    st.session_state["hitl_state"] = "override"
+                    st.rerun()
+            with col_r:
+                if st.button("❌ Reject & Revise", key="hitl_reject", use_container_width=True):
+                    st.session_state["hitl_state"] = "reject"
+                    st.rerun()
+
+        elif hitl == "override":
+            st.markdown('<div class="secops-card"><div class="hitl-title" style="text-align:left">🔄 Override — Select Alternative Playbook</div>', unsafe_allow_html=True)
+
+            pb_options = {pid: f"{pid} — {pname}" for pid, pname in ALL_PLAYBOOKS}
+            selected_pb = st.selectbox(
+                "Select alternative playbook",
+                list(pb_options.keys()),
+                format_func=lambda x: pb_options[x],
+                index=0,
             )
-            st.markdown(f'<table class="audit-table"><thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Outcome</th></tr></thead><tbody>{rows}</tbody></table>', unsafe_allow_html=True)
+            override_reason = st.text_area("Reason for override (optional)", placeholder="e.g. C2 containment is higher priority than credential reset given active exfil...", height=80)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Confirm Override", type="primary", use_container_width=True):
+                    _log("ORCHESTRATOR", f"HITL: Override — analyst selected {selected_pb}")
+                    _audit(st.session_state["analyst_name"], f"HITL: Override → {selected_pb}", override_reason or "No reason given")
+                    from core.tools.snow_mcp import add_worknote
+                    raw = st.session_state["case_data"]["raw_case"]
+                    snow_ref = raw.get("snow_incident_ref","INC0000000")
+                    add_worknote(snow_ref, f"HITL OVERRIDE by {st.session_state['analyst_name']}: {selected_pb} selected. Reason: {override_reason or 'None given'}", author=st.session_state["analyst_name"])
+                    
+                    st.session_state["override_playbook"] = selected_pb
+                    st.session_state["hitl_decision"] = "override"
+                    st.session_state["pipeline_step"] = 7
+                    st.session_state["running"] = True
+                    st.rerun()
+            with col2:
+                if st.button("← Back", key="override_back", use_container_width=True):
+                    st.session_state["hitl_state"] = "awaiting"
+                    st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        elif hitl == "reject":
+            st.markdown('<div class="secops-card"><div class="hitl-title" style="text-align:left">❌ Reject & Revise — Provide Analyst Feedback</div>', unsafe_allow_html=True)
+
+            feedback = st.text_area(
+                "Describe what the AI missed or should reconsider:",
+                placeholder="e.g. The ransomware isolation protocol should take priority. The blast radius likely extends beyond dev workstations — check for shared file server access...",
+                height=120,
+            )
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🔁 Submit Feedback & Re-analyse", type="primary", use_container_width=True, disabled=not feedback):
+                    _log("ORCHESTRATOR", f"HITL: Rejected — feedback submitted by {st.session_state['analyst_name']}")
+                    _audit(st.session_state["analyst_name"], "HITL: Rejected — feedback submitted", feedback)
+                    from core.tools.snow_mcp import add_worknote
+                    raw = st.session_state["case_data"]["raw_case"]
+                    snow_ref = raw.get("snow_incident_ref","INC0000000")
+                    add_worknote(snow_ref, f"HITL REJECT by {st.session_state['analyst_name']}: {feedback}", author=st.session_state["analyst_name"])
+                    
+                    st.session_state["analyst_feedback"] = feedback
+                    st.session_state["hitl_decision"] = "reject"
+                    st.session_state["pipeline_step"] = 7
+                    st.session_state["running"] = True
+                    st.rerun()
+            with col2:
+                if st.button("← Back", key="reject_back", use_container_width=True):
+                    st.session_state["hitl_state"] = "awaiting"
+                    st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # ── Step 5: Impact & Incident Synthesis [Threat Analyst Agent] ──────────────
+    if st.session_state["pipeline_step"] >= 5 and st.session_state.get("analysis"):
+        analysis = st.session_state["analysis"]
+        st.markdown(f"#### 🛡️ Step 5 — Impact & Incident Synthesis [Threat Analyst Agent — {MODEL_PRO}]")
+        
+        conf = analysis.get("confidence_score", 0)
+        sev = analysis.get("severity", "HIGH")
+        mitre = analysis.get("mitre_techniques", [])
+
+        # Format values
+        conf_pct = int(float(conf) * 100) if isinstance(conf, (int, float, str)) and str(conf).replace('.','',1).isdigit() else 0
+        endpoints = analysis.get('blast_radius_endpoints', 0)
+        users = analysis.get('blast_radius_users', 0)
+        mitre_html = " ".join(f'<span class="mitre-badge" title="{t.get("technique_name","")}">{t.get("technique_id","")}</span>' for t in mitre)
 
         st.markdown(f"""
-        <div style="text-align:center;margin-top:24px;padding:16px;background:linear-gradient(135deg,#0a1f0a,#051505);border-radius:12px;border:1px solid #16a34a">
-          <div style="font-size:28px">🛡️ ✅</div>
-          <div style="font-size:16px;font-weight:700;color:#22c55e;margin:4px 0">Case Resolved — Agentic SecOps</div>
-          <div style="font-size:12px;color:#64748b">Full audit trail written to ServiceNow · {analysis.get('estimated_containment_time_minutes',0)} min containment</div>
+        <div class="secops-card">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:12px;text-align:left">
+            <div><div class="secops-card-header">AI Confidence</div><div style="font-size:24px;font-weight:800;color:{'#10b981' if conf_pct >= 80 else '#f59e0b'}">{conf_pct}%</div></div>
+            <div><div class="secops-card-header">Blast Radius: Endpoints</div><div style="font-size:24px;font-weight:800;color:#f97316">{endpoints}</div></div>
+            <div><div class="secops-card-header">Blast Radius: Users</div><div style="font-size:24px;font-weight:800;color:#f97316">{users}</div></div>
+          </div>
+
+          <div style="margin-top:20px">
+            <div class="secops-card-header">Threat Classification</div>
+            <div style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:8px">{analysis.get('threat_classification','')}</div>
+            <div style="margin-bottom:8px">{_severity_badge(sev)}</div>
+            <p style="color:#475569;font-size:13px;line-height:1.6">{analysis.get('case_summary','')}</p>
+          </div>
+
+          <div style="margin-top:16px;padding:12px;background:#f8fafc;border-radius:8px;border-left:3px solid #2563eb;border:1px solid #e2e8f0">
+            <div class="secops-card-header" style="color:#1e3a8a">Recommended Playbook</div>
+            <div style="font-weight:700;color:#1e293b;font-size:14px">
+              {analysis.get('recommended_playbook_id','')} — {analysis.get('recommended_playbook_name','')}
+            </div>
+            <div style="color:#475569;font-size:12px;margin-top:4px">{analysis.get('playbook_rationale','')}</div>
+            <div style="color:#64748b;font-size:11px;margin-top:4px">⏱ Est. containment: {analysis.get('estimated_containment_time_minutes',0)} min</div>
+          </div>
+
+          <div style="margin-top:12px">
+            <div class="secops-card-header" style="color:#2563eb">Provide approval to perform the following actions</div>
+            {''.join(f'<div style="color:#334155;font-size:12px;padding:2px 0">▸ {a}</div>' for a in analysis.get('actions_to_approve',[]))}
+          </div>
+
+          <div style="margin-top:20px">
+            <div class="secops-card-header">MITRE ATT&CK Techniques</div>
+            {mitre_html if mitre_html else '<span style="color:#64748b;font-size:12px">None identified</span>'}
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
+    # ── Step 4: IoC enrichments ────────────────────────────────────────────────
+    if st.session_state["pipeline_step"] >= 4 and st.session_state.get("ioc_data"):
+        ioc_data = st.session_state["ioc_data"]
+        with st.expander("🔬 Step 4 — Threat Intel Enrichment [Enrichment Agent — GTI MCP]", expanded=False):
+            all_iocs = (
+                [(d, "ip") for d in ioc_data.get("ips", [])] +
+                [(d, "hash") for d in ioc_data.get("hashes", [])] +
+                [(d, "domain") for d in ioc_data.get("domains", [])]
+            )
+            for ioc, itype in all_iocs:
+                indicator = ioc.get("ip") or ioc.get("hash") or ioc.get("domain") or "?"
+                score = ioc.get("reputation_score", 0)
+                verdict = ioc.get("verdict", "Unknown")
+                rep_cls = _rep_color(score)
+                st.markdown(f"""
+                <div class="secops-card">
+                  <div style="display:flex;justify-content:space-between">
+                    <div><span style="font-family:monospace;color:#60a5fa">{itype.upper()}</span><span style="font-weight:700;font-family:'JetBrains Mono',monospace;font-size:13px;color:#e2e8f0;margin-left:8px">{indicator[:60]}</span></div>
+                    <span class="{rep_cls}" style="font-size:22px">{score}</span>
+                  </div>
+                  <div style="font-size:11px;color:#94a3b8;margin-top:4px">Family: {ioc.get('malware_family','—')} · Verdict: <strong style="color:{'#ef4444' if 'Malicious' in verdict else '#f59e0b' if 'Suspicious' in verdict else '#22c55e'}">{verdict}</strong></div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # ── Step 3: RAG results ────────────────────────────────────────────────────
+    if st.session_state["pipeline_step"] >= 3 and st.session_state.get("rag_results"):
+        rags = st.session_state["rag_results"]
+        with st.expander("📚 Step 3 — Playbook Selection [Enrichment Agent — RAG Method]", expanded=False):
+            for i, r in enumerate(rags[:3]):
+                score_pct = int(r.get("relevance_score", 0) * 100)
+                prefix = "🥇" if i == 0 else ("🥈" if i == 1 else "🥉")
+                st.markdown(f"""
+                <div class="secops-card">
+                  <div style="display:flex;justify-content:space-between">
+                    <span style="font-weight:700;color:#e2e8f0">{prefix} {r['playbook_id']} — {r['playbook_name']}</span>
+                    <span style="font-size:20px;font-weight:800;color:{'#22c55e' if score_pct>=80 else '#f59e0b'}">{score_pct}%</span>
+                  </div>
+                  <div style="color:#94a3b8;font-size:12px;margin-top:4px;font-style:italic">"{r.get('excerpt','')[:120]}..."</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # ── Step 2: Show case data ─────────────────────────────────────────────────
+    if st.session_state["pipeline_step"] >= 2 and st.session_state.get("case_data"):
+        cd = st.session_state["case_data"]
+        with st.expander("📂 Step 2 — Data Enrichment [Enrichment Agent — SIEM MCP]", expanded=False):
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("**Correlated Alerts**")
+                for a in cd["alerts"]:
+                    sev_color = "🔴" if a["severity"] == "CRITICAL" else "🟠"
+                    st.markdown(f"{sev_color} `{a['alert_id']}` **{a['rule_name']}**  \n`{a['timestamp'][:16]}` · src: `{a['source_ip']}`")
+            with c2:
+                st.markdown("**Affected Assets**")
+                for asset in cd["assets"]:
+                    st.markdown(f"💻 **{asset['hostname']}** (`{asset['ip']}`)  \n{asset['os']} · `{asset['user']}`")
+            st.markdown("**Raw CEF Log Sample**")
     # ── Welcome screen (pipeline not started) ─────────────────────────────────
     if st.session_state["pipeline_step"] == 0:
         st.markdown("""
@@ -899,49 +857,6 @@ with main_col:
         </div>
         """, unsafe_allow_html=True)
 
-        # ── SOC Analyst Chat ───────────────────────────────────────────────────
-        # st.divider()
-        # st.subheader("💬 SOC Analyst AI Assistant")
-        # 
-        # if "chat_history" not in st.session_state:
-        #     st.session_state["chat_history"] = []
-        # 
-        # chat_container = st.container(height=350)
-        # with chat_container:
-        #     for msg in st.session_state["chat_history"]:
-        #         with st.chat_message(msg["role"]):
-        #             st.markdown(msg["content"])
-        # 
-        # if chat_input := st.chat_input("Ask about this case, investigation details, or playbooks..."):
-        #     st.session_state["chat_history"].append({"role": "user", "content": chat_input})
-        #     with chat_container:
-        #         with st.chat_message("user"):
-        #             st.markdown(chat_input)
-        # 
-        #     with chat_container:
-        #         with st.chat_message("assistant"):
-        #             with st.spinner("AI is thinking..."):
-        #                 from runner import run_soc_chat
-        #                 session_id = st.session_state.get("adk_session_id", "default-chat")
-        #                 analyst_name = st.session_state.get("analyst_name", "SOC-Analyst")
-        #                 service = st.session_state["session_service"]
-        #                 
-        #                 response_chunks = []
-        #                 async def get_response():
-        #                     async for event in run_soc_chat(chat_input, session_id, analyst_name, service):
-        #                         if event["type"] == "text":
-        #                             response_chunks.append(event["text"])
-        #                 
-        #                 try:
-        #                     import asyncio
-        #                     asyncio.run(get_response())
-        #                     full_response = "".join(response_chunks)
-        #                     st.markdown(full_response)
-        #                     st.session_state["chat_history"].append({"role": "assistant", "content": full_response})
-        #                 except Exception as e:
-        #                     st.error(f"Chat error: {e}")
-        #                     st.write(f"Ensure your .env is configured correctly.")
-
-        # Footer
-        st.markdown("---")
-        st.markdown('<div style="text-align:center;color:#64748b;font-size:11px">Agentic SecOps Platform v2.5 · Powered by Gemini & Google ADK</div>', unsafe_allow_html=True)
+    # Footer
+    st.markdown("---")
+    st.markdown('<div style="text-align:center;color:#64748b;font-size:11px">Agentic SecOps Platform v2.5 · Powered by Gemini & Google ADK</div>', unsafe_allow_html=True)
